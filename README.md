@@ -1210,6 +1210,13 @@ Using project "mission-control".
     hcd-test-1-hcd-test-1-dc-1-rack-1-sts-2   2/2     Running   0          7m55s
     ```
 
+    ---
+    <p align="middle">
+        <img src="images/3.png" alt="drawing" width="700"/>
+    </p>
+    
+    ---
+
     > ---
     > ❗The Broken UI Workflow and Why the Critical Patch Was Needed?
     >
