@@ -1,21 +1,21 @@
 # Mission Control & HCD Air‑Gapped Install on OpenShift
 
-This runbook outlines the comprehensive procedure for deploying a production-ready Hyper-Converged Database (HCD) cluster within an air-gapped OpenShift environment. It utilizes a declarative approach to preemptively resolve network isolation and configuration constraints, ensuring a seamless startup without the need for manual patching or intervention.
+> This runbook outlines the comprehensive procedure for deploying a production-ready Hyper-Converged Database (HCD) cluster within an air-gapped OpenShift environment. It utilizes a declarative approach to preemptively resolve network isolation and configuration constraints, ensuring a seamless startup without the need for manual patching or intervention.
 
 ## Environment Provisioning and Prerequisites
 
-It is necessary to provision a suitable environment for the installation. The most suitable option for IBM environments is the OpenShift Cluster (OCP-V) - IBM, located under TechZone Certified Base Images, as shown in the screenshot below.
+> It is necessary to provision a suitable environment for the installation. The most suitable option for IBM environments is the OpenShift Cluster (OCP-V) - IBM, located under TechZone Certified Base Images, as shown in the screenshot below.
 
 <p align="middle">
   <img src="images/1.png" alt="drawing" width="700"/>
 </p>
 
-**The following options were selected for this setup:**
-- **OpenShift Version:** 4.18
-- **Worker Node Count:** 3
-- **Worker Node Flavor:** 8 vCPU x 32 GB - 100 GB ephemeral storage
+> **The following options were selected for this setup:**
+> - **OpenShift Version:** 4.18
+> - **Worker Node Count:** 3
+> - **Worker Node Flavor:** 8 vCPU x 32 GB - 100 GB ephemeral storage
 
-Once the environment is ready, you can find the bastion host SSH connection details and password on the environment page. Using these credentials, you can connect to the bastion host from your local machine.
+> Once the environment is ready, you can find the bastion host SSH connection details and password on the environment page. Using these credentials, you can connect to the bastion host from your local machine.
 
 ```shell
 (base) oktay.tuncay@Oktay-Tuncay ~ % ssh itzuser@api.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com -p 10022
@@ -23,7 +23,7 @@ Once the environment is ready, you can find the bastion host SSH connection deta
 [itzuser@itz-h1lus0-helper-1 ~]$ sudo su -
 ```
 
-Click the OCP Console link on the same page, sign in to the OpenShift UI using the *kube:admin* user, and copy the token from the **Copy login command** section at the top of the page, as shown below.
+> Click the OCP Console link on the same page, sign in to the OpenShift UI using the *kube:admin* user, and copy the token from the **Copy login command** section at the top of the page, as shown below.
 
 <p align="middle">
   <img src="images/4.png" alt="drawing" width="700"/>
@@ -33,9 +33,9 @@ Click the OCP Console link on the same page, sign in to the OpenShift UI using t
   <img src="images/5.png" alt="drawing" width="700"/>
 </p>
 
-Authenticate to the OpenShift Container Platform (OCP) command-line interface (CLI) using the token you copied.
+> Authenticate to the OpenShift Container Platform (OCP) command-line interface (CLI) using the token you copied.
 
-> 📌 Note: The token here is renewed at regular intervals.
+> 📌 **Note:** The token here is renewed at regular intervals.
 
 ```shell
 [root@itz-h1lus0-helper-1 ~]# oc login --token=sha256~SEe2tu7ZIg2OiE_VX0huymYMM1uftpPXiTVQCpze_gs --server=https://api.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com:6443
@@ -56,6 +56,7 @@ Using project "mission-control".
     docker version
     ```
 
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# oc version
     Client Version: 4.18.28
@@ -64,8 +65,9 @@ Using project "mission-control".
     Kubernetes Version: v1.31.13
     ```
 
-    In my case, I installed both Helm and Docker manually. When you check their versions, you will see that they are now installed, even if they were not present before.
+    > In my case, I installed both Helm and Docker manually. When you check their versions, you will see that they are now installed, even if they were not present before.
 
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# helm version
     bash: helm: command not found...
@@ -100,10 +102,11 @@ Using project "mission-control".
     OS/Arch:      linux/amd64
     ```
 
-    It is recommended to check the storage class and available storage capacity before starting the installation.
+    > It is recommended to check the storage class and available storage capacity before starting the installation.
 
 2. **Check Storageclass**
 
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# oc get storageclass
     NAME                                             PROVISIONER                             RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
@@ -112,7 +115,7 @@ Using project "mission-control".
     openshift-storage.noobaa.io                      openshift-storage.noobaa.io/obc         Delete          Immediate           false                  3h18m
     ```
 
-    You can also check the storage capacity in the OpenShift UI (OCP Console).
+    > You can also check the storage capacity in the OpenShift UI (OCP Console).
 
     <p align="middle">
     <img src="images/6.png" alt="drawing" width="700"/>
@@ -125,8 +128,9 @@ Using project "mission-control".
     yq --version
     ```
 
-    In my case, I manually installed skopeo and yq. Verifying their versions shows that the installation was successful.
+    > In my case, I manually installed skopeo and yq. Verifying their versions shows that the installation was successful.
 
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# skopeo --version
     bash: skopeo: command not found...
@@ -240,7 +244,7 @@ Using project "mission-control".
 ---
 ### Configure Nexus repositories (UI)
 
-Log in to the Nexus UI using the admin password you retrieved. On the first login, Nexus will ask you to change the admin password. When prompted, set a new admin password
+> Log in to the Nexus UI using the admin password you retrieved. On the first login, Nexus will ask you to change the admin password. When prompted, set a new admin password
 
 #### Create repositories in the UI
 
@@ -248,11 +252,15 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
   <img src="images/8.png" alt="drawing" width="700"/>
 </p>
 
-**Settings** -> Repository -> Repositories -> Create repository:
-  - **docker (hosted):** Name it docker-local, set HTTP port to 5000, and click save — leave all other settings as they are.
-  - **helm (hosted):** Name it helm-local, and click save - leave all other settings as they are.
+> ---
+> **Settings** -> Repository -> Repositories -> Create repository:
+>  - **docker (hosted):** Name it docker-local, set HTTP port to 5000, and click save — leave all other settings as they are.
+>  - **helm (hosted):** Name it helm-local, and click save - leave all other settings as they are.
+>
+> ---
 
 
+> ----
 > #### ❗ Note  
 > Creating these repositories in Nexus is **absolutely required** for an air-gapped installation.  
 >
@@ -283,6 +291,7 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
 >   - `connection refused`  
 >   - `repository not found`  
 > - The OpenShift cluster will fail with `ErrImagePull` because it won’t find the internal registry.
+> ---
 
 ### Mirror the Mission Control chart and images to Nexus
 
@@ -351,7 +360,7 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     > rendered.yaml
     ```
 
-6. Extract all container image references using the command below.
+6. Extract all container image references using the command below. 
 
     ```shell
     yq e -r '.. | .image? | select(.)' rendered.yaml | sort -u > images.txt
@@ -375,8 +384,11 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     ps aux | grep port-forward
     ```
 
-    > 📌 Note  
-    > You need port forwarding because your Bastion host (itz-h1lus0-helper-1) is outside the Kubernetes cluster network, while the Nexus registry service (nexus-docker) runs inside the cluster network. Without port forwarding, the `skopeo` copy command will fail with ‘Connection Refused’ because the Bastion has no direct access to the Nexus registry.”
+    > ---
+    > 📌 Note
+    > You need port forwarding because your bastion/helper node is outside the Kubernetes cluster network, while the Nexus registry service (nexus-docker) runs inside the cluster network. Without port forwarding, the `skopeo` copy command will fail with ‘Connection Refused’ because the Bastion has no direct access to the Nexus registry.”
+    >
+    > ---
 
 10. Mirror all images and strip the source registry from the path.
 
@@ -396,7 +408,7 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     done < images.txt
     ```
 
-    Since you pushed the images to the `docker-local` repository using skopeo, they are now indexed and visible in the Nexus web interface
+    > Since you pushed the images to the `docker-local` repository using skopeo, they are now indexed and visible in the Nexus web interface
 
     <p align="middle">
     <img src="images/10.png" alt="drawing" width="700"/>
@@ -451,6 +463,7 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     mc-internal/mission-control	1.15.0       	1.15.0     	Kubernetes tooling which handles the provisioni...
     ```
 
+    > ---
     > 📌 Note
     > The curl command fetched the mission-control-1.15.0.tgz file, which you previously downloaded and manually uploaded to the helm-local repository in Nexus.
     > 
@@ -459,6 +472,8 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     > `I have a new source for charts. It is located at this internal Nexus URL, and these are the credentials to access it.`
     > 
     > You named this new source mc-internal. From now on, whenever you want to install software from this internal repository, you will refer to it by that name.
+    >
+    > ---
 
 #### Install cert‑manager (air‑gapped)
 
@@ -525,8 +540,11 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     sed -i '/^---$/d;/^$/d' cert-images.txt
     ```
 
+    > ---
     > 📌 Note
     > The High-Level Reason: Mission Control uses TLS (HTTPS) for secure communication between its internal services. It relies on cert-manager to automatically generate and manage these security certificates. If cert-manager is not installed, Mission Control will fail to start.
+    >
+    > ---
 
 5. Mirror the Images to Nexus
 
@@ -631,437 +649,444 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
     https://cert-manager.io/docs/usage/ingress/
     ```
 
+    ☑️ Verify
 
-- Verify
+    ```shell
+    oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
+    oc get pods -n cert-manager
+    ```
 
-```shell
-oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
-oc get pods -n cert-manager
-```
+    💡 **Expected Output:**
 
-💡 **Expected Output:**
-
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
-NAME                             CREATED AT
-certificates.cert-manager.io     2025-11-26T17:05:19Z
-issuers.cert-manager.io          2025-11-26T17:05:19Z
-clusterissuers.cert-manager.io   2025-11-26T17:05:19Z
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# oc get pods -n cert-manager
-NAME                                       READY   STATUS    RESTARTS   AGE
-cert-manager-77c5f7bf75-rn2zs              1/1     Running   0          56s
-cert-manager-cainjector-669d85f6cf-cqrvx   1/1     Running   0          56s
-cert-manager-webhook-585b8b6bfc-47rgz      1/1     Running   0          56s
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
+    NAME                             CREATED AT
+    certificates.cert-manager.io     2025-11-26T17:05:19Z
+    issuers.cert-manager.io          2025-11-26T17:05:19Z
+    clusterissuers.cert-manager.io   2025-11-26T17:05:19Z
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# oc get pods -n cert-manager
+    NAME                                       READY   STATUS    RESTARTS   AGE
+    cert-manager-77c5f7bf75-rn2zs              1/1     Running   0          56s
+    cert-manager-cainjector-669d85f6cf-cqrvx   1/1     Running   0          56s
+    cert-manager-webhook-585b8b6bfc-47rgz      1/1     Running   0          56s
+    ```
 
 #### Prepare Mission Control Values (Air-Gapped)
 
-Force all images to pull from Nexus - include required globals.
+1. Force all images to pull from Nexus - include required globals.
 
-- Pull secret for mission-control namespace
+    ```shell
+    # Pull secret for mission-control namespace
+    oc new-project mission-control || true
 
-```shell
-oc new-project mission-control || true
-
-oc create secret docker-registry mc-regcred \
-  --docker-server=nexus-docker.nexus.svc.cluster.local:5000 \
-  --docker-username=admin \
-  --docker-password='password' \
-  -n mission-control
-```
+    oc create secret docker-registry mc-regcred \
+    --docker-server=nexus-docker.nexus.svc.cluster.local:5000 \
+    --docker-username=admin \
+    --docker-password='password' \
+    -n mission-control
+    ```
 
 ### Install Mission Control from Nexus
 
 #### Prerequisites for Mission Control Installation
 
-- Create values-defaults.yaml file
+1. Create values-defaults.yaml file
 
-```shell
-helm show values mc-internal/mission-control \
-  --version ${CHART_VERSION} \
-  > values-defaults.yaml
-```
+    ```shell
+    helm show values mc-internal/mission-control \
+    --version ${CHART_VERSION} \
+    > values-defaults.yaml
+    ```
 
-- Create dex-reset.yaml file
+2. Create dex-reset.yaml file
 
-Generate your own bcrypt hash for the admin password.
+    > Generate your own bcrypt hash for the admin password.
 
-```shell
-sudo yum install -y httpd-tools
+    ```shell
+    sudo yum install -y httpd-tools
 
-echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
-```
+    echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
+    ```
 
-💡 **Expected Output:**
+    💡 **Expected Output:**
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
-$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
+    $2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG
+    ```
 
-You will use the password created in the previous step in the following command.
+    > You will use the password created in the previous step in the following command.
 
-```shell
-cat > dex-reset.yaml <<'EOF'
-dex:
-  config:
-    enablePasswordDB: true
-    staticPasswords:
-      - email: admin@example.com
-        hash: '$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG'
-        userID: "00000000-0000-0000-0000-000000000001"
-        username: admin
-EOF
-```
+    ```shell
+    cat > dex-reset.yaml <<'EOF'
+    dex:
+    config:
+        enablePasswordDB: true
+        staticPasswords:
+        - email: admin@example.com
+            hash: '$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG'
+            userID: "00000000-0000-0000-0000-000000000001"
+            username: admin
+    EOF
+    ```
 
-The username and password specified in this step will be the credentials used to connect to Mission Control UI.
+    > The username and password specified in this step will be the credentials used to connect to Mission Control UI.
 
-- Create airgap-images.yaml file
+3. Create airgap-images.yaml file
 
-```shell
-cat > airgap-images.yaml <<'EOF'
-global:
-  clusterScoped: true
-  clusterScopedResources: true
-  imageConfig:
-    defaults:
-      registry: nexus-docker.nexus.svc.cluster.local:5000
-      pullSecrets:
-        - mc-regcred
-EOF
-```
+    ```shell
+    cat > airgap-images.yaml <<'EOF'
+    global:
+    clusterScoped: true
+    clusterScopedResources: true
+    imageConfig:
+        defaults:
+        registry: nexus-docker.nexus.svc.cluster.local:5000
+        pullSecrets:
+            - mc-regcred
+    EOF
+    ```
 
-Now you are ready to run the Mission Control installation with the following command.
+    > Now you are ready to run the Mission Control installation with the following command.
 
-```shell
-CHART_VERSION=1.15.0
-helm upgrade --install mission-control mc-internal/mission-control \
-  -n mission-control \
-  -f values-defaults.yaml \
-  -f dex-reset.yaml \
-  -f disable-observability.yaml \
-  -f airgap-images.yaml \
-  --version ${CHART_VERSION}
-```
+    ```shell
+    CHART_VERSION=1.15.0
+    helm upgrade --install mission-control mc-internal/mission-control \
+    -n mission-control \
+    -f values-defaults.yaml \
+    -f dex-reset.yaml \
+    -f disable-observability.yaml \
+    -f airgap-images.yaml \
+    --version ${CHART_VERSION}
+    ```
 
-- Check the status with the `oc get pods -n mission-control` command
+4. Check the status with the `oc get pods -n mission-control` command
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc get pods -n mission-control
-NAME                                                  READY   STATUS      RESTARTS   AGE
-mission-control-aggregator-0                          1/1     Running     0          33s
-mission-control-cass-operator-7959b6486-j62wm         1/1     Running     0          33s
-mission-control-crd-patcher-lwqzc                     0/1     Completed   0          42s
-mission-control-dex-7846cb748-9ppfb                   1/1     Running     0          33s
-mission-control-k8ssandra-operator-6b5cf5b785-8h4vr   1/1     Running     0          33s
-mission-control-kube-state-metrics-5d5fdd9b8c-qzzmg   1/1     Running     0          33s
-mission-control-operator-99b5dcbf9-9xt7l              1/1     Running     0          33s
-mission-control-ui-75b69765dc-npjc6                   1/1     Running     0          33s
-replicated-5f4c8b7757-fsmfx                           1/1     Running     0          33s
-```
+    💡 **Expected Output:**
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc get pods -n mission-control
+    NAME                                                  READY   STATUS      RESTARTS   AGE
+    mission-control-aggregator-0                          1/1     Running     0          33s
+    mission-control-cass-operator-7959b6486-j62wm         1/1     Running     0          33s
+    mission-control-crd-patcher-lwqzc                     0/1     Completed   0          42s
+    mission-control-dex-7846cb748-9ppfb                   1/1     Running     0          33s
+    mission-control-k8ssandra-operator-6b5cf5b785-8h4vr   1/1     Running     0          33s
+    mission-control-kube-state-metrics-5d5fdd9b8c-qzzmg   1/1     Running     0          33s
+    mission-control-operator-99b5dcbf9-9xt7l              1/1     Running     0          33s
+    mission-control-ui-75b69765dc-npjc6                   1/1     Running     0          33s
+    replicated-5f4c8b7757-fsmfx                           1/1     Running     0          33s
+    ```
 
-- Expose UI with TLS passthrough (UI listens HTTPS on 8080)
+5. Expose UI with TLS passthrough (UI listens HTTPS on 8080)
 
-```shell
-# Ensure service port "https" -> 8080
-oc patch svc mission-control-ui -n mission-control \
-  -p '{"spec":{"ports":[{"name":"https","port":8080,"protocol":"TCP","targetPort":8080}]}}'
-```
+    ```shell
+    # Ensure service port "https" -> 8080
+    oc patch svc mission-control-ui -n mission-control \
+    -p '{"spec":{"ports":[{"name":"https","port":8080,"protocol":"TCP","targetPort":8080}]}}'
+    ```
 
-- Create route if missing
+6. Create route if missing
 
-```shell
-oc get route mission-control-ui -n mission-control >/dev/null 2>&1 || \
-  oc expose service mission-control-ui -n mission-control
-```
+    ```shell
+    oc get route mission-control-ui -n mission-control >/dev/null 2>&1 || \
+    oc expose service mission-control-ui -n mission-control
+    ```
 
-- TLS passthrough to the pod
+7. TLS passthrough to the pod
 
-```shell
-oc patch route mission-control-ui -n mission-control \
-  -p '{"spec":{"tls":{"termination":"passthrough","insecureEdgeTerminationPolicy":"Redirect"},"port":{"targetPort":"https"}}}'
-```
+    ```shell
+    oc patch route mission-control-ui -n mission-control \
+    -p '{"spec":{"tls":{"termination":"passthrough","insecureEdgeTerminationPolicy":"Redirect"},"port":{"targetPort":"https"}}}'
+    ```
 
-- Print URL
+8. Print URL
 
-```shell
-HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
-echo "Mission Control UI: https://${HOST}"
-```
+    ```shell
+    HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
+    echo "Mission Control UI: https://${HOST}"
+    ```
 
-💡 **Expected Output:**
-```shell
-[root@itz-h1lus0-helper-1 ~]# HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
-echo "Mission Control UI: https://${HOST}"
-Mission Control UI: https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com
-```
+    💡 **Expected Output:**
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
+    echo "Mission Control UI: https://${HOST}"
+    Mission Control UI: https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com
+    ```
 
-Now we have all the required credential information for Mission Control.
-
-**Mission Control UI:**
-
-```http
-https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com
-```
-
-**Username:** admin@example.com
-**Password:** MY_SECRET_PASSWORD
+    > ---
+    > ✅ Now we have all the required credential information for Mission Control.
+    >
+    > **Mission Control UI:** ```http https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com```
+    > 
+    > **Username:** admin@example.com
+    > **Password:** MY_SECRET_PASSWORD
+    >
+    > ---
 
 #### Mirror the Required Images to Nexus
 
-Before run be sure port forwarding still alive
+1. Before run be sure port forwarding still alive
 
-```shell
-ps aux | grep port-forward
-```
+    ```shell
+    ps aux | grep port-forward
+    ```
 
-If not, run the command below.
+    > If not, run the command below. 👇
 
-```shell
-nohup oc -n nexus port-forward svc/nexus-docker 5000:5000 >/tmp/nexus-registry-pf.log 2>&1 &
-```
+    ```shell
+    nohup oc -n nexus port-forward svc/nexus-docker 5000:5000 >/tmp/nexus-registry-pf.log 2>&1 &
+    ```
 
-- Create the `full_images.txt` file.
+2. Create the `full_images.txt` file.
 
-```bash
-cat > full_images.txt  <<'EOF'
-docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/mission-control/cql-router:ed96e7c4
-docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/mission-control/cqlsh-pod:d6dcf587
-docker pull proxy.replicated.com/anonymous/cr.k8ssandra.io/k8ssandra/k8ssandra-operator:v1.27.0
-docker pull proxy.replicated.com/anonymous/datastax/cass-config-builder:1.0-ubi
-docker pull proxy.replicated.com/anonymous/datastax/dse-mgmtapi-6_8:6.8.59-ubi
-docker pull proxy.replicated.com/anonymous/datastax/dse-mgmtapi-6_8:6.9.12-ubi
-docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control-dex:v1.15.0
-docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control-ui:v1.15.0
-docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control:v1.15.0
-docker pull proxy.replicated.com/anonymous/docker.io/k8ssandra/cass-operator:v1.27.1
-docker pull proxy.replicated.com/anonymous/docker.io/k8ssandra/k8ssandra-client:mission-control-1.15.0
-docker pull proxy.replicated.com/anonymous/docker.io/nginxinc/nginx-unprivileged:1.28-alpine3.21-slim
-docker pull proxy.replicated.com/anonymous/docker.io/replicated/replicated-sdk:1.0.0
-docker pull proxy.replicated.com/anonymous/haproxytech/kubernetes-ingress:3.1.2
-docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:4.0.17-ubi
-docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:4.1.8-ubi
-docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:5.0.4-ubi
-docker pull proxy.replicated.com/anonymous/k8ssandra/k8ssandra-client:v0.8.3
-docker pull proxy.replicated.com/anonymous/k8ssandra/medusa:0.25.1
-docker pull proxy.replicated.com/anonymous/k8ssandra/system-logger:v1.27.1
-docker pull proxy.replicated.com/anonymous/library/memcached:1.6.38-alpine
-docker pull proxy.replicated.com/anonymous/memcached:1.6.38-alpine
-docker pull proxy.replicated.com/anonymous/prom/memcached-exporter:v0.15.2
-docker pull proxy.replicated.com/anonymous/prom/memcached-exporter:v0.15.3
-docker pull proxy.replicated.com/anonymous/quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-docker pull proxy.replicated.com/anonymous/quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-docker pull proxy.replicated.com/anonymous/registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
-docker pull proxy.replicated.com/anonymous/stargateio/data-api:v1.0.32
-docker pull proxy.replicated.com/anonymous/thelastpickle/cassandra-reaper:4.0.0
-docker pull proxy.replicated.com/anonymous/timberio/vector:0.49.0-distroless-libc
-EOF
-```
+    ```bash
+    cat > full_images.txt  <<'EOF'
+    docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+    docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/mission-control/cql-router:ed96e7c4
+    docker pull proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/mission-control/cqlsh-pod:d6dcf587
+    docker pull proxy.replicated.com/anonymous/cr.k8ssandra.io/k8ssandra/k8ssandra-operator:v1.27.0
+    docker pull proxy.replicated.com/anonymous/datastax/cass-config-builder:1.0-ubi
+    docker pull proxy.replicated.com/anonymous/datastax/dse-mgmtapi-6_8:6.8.59-ubi
+    docker pull proxy.replicated.com/anonymous/datastax/dse-mgmtapi-6_8:6.9.12-ubi
+    docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control-dex:v1.15.0
+    docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control-ui:v1.15.0
+    docker pull proxy.replicated.com/anonymous/docker.io/datastax/mission-control:v1.15.0
+    docker pull proxy.replicated.com/anonymous/docker.io/k8ssandra/cass-operator:v1.27.1
+    docker pull proxy.replicated.com/anonymous/docker.io/k8ssandra/k8ssandra-client:mission-control-1.15.0
+    docker pull proxy.replicated.com/anonymous/docker.io/nginxinc/nginx-unprivileged:1.28-alpine3.21-slim
+    docker pull proxy.replicated.com/anonymous/docker.io/replicated/replicated-sdk:1.0.0
+    docker pull proxy.replicated.com/anonymous/haproxytech/kubernetes-ingress:3.1.2
+    docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:4.0.17-ubi
+    docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:4.1.8-ubi
+    docker pull proxy.replicated.com/anonymous/k8ssandra/cass-management-api:5.0.4-ubi
+    docker pull proxy.replicated.com/anonymous/k8ssandra/k8ssandra-client:v0.8.3
+    docker pull proxy.replicated.com/anonymous/k8ssandra/medusa:0.25.1
+    docker pull proxy.replicated.com/anonymous/k8ssandra/system-logger:v1.27.1
+    docker pull proxy.replicated.com/anonymous/library/memcached:1.6.38-alpine
+    docker pull proxy.replicated.com/anonymous/memcached:1.6.38-alpine
+    docker pull proxy.replicated.com/anonymous/prom/memcached-exporter:v0.15.2
+    docker pull proxy.replicated.com/anonymous/prom/memcached-exporter:v0.15.3
+    docker pull proxy.replicated.com/anonymous/quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    docker pull proxy.replicated.com/anonymous/quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    docker pull proxy.replicated.com/anonymous/registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
+    docker pull proxy.replicated.com/anonymous/stargateio/data-api:v1.0.32
+    docker pull proxy.replicated.com/anonymous/thelastpickle/cassandra-reaper:4.0.0
+    docker pull proxy.replicated.com/anonymous/timberio/vector:0.49.0-distroless-libc
+    EOF
+    ```
 
-> 📌 Note:
-> Mirroring this full list of images is necessary. This list includes images like hcd:1.2.3-ubi and cql-router. 
-> 
-> These are not part of the standard Mission Control installation but are dynamically pulled when you create a database cluster. If you skip them now, your cluster creation will fail later with ImagePullBackOff.
->
-> The list also includes critical operational tools like cassandra-reaper (for backups/repairs), medusa (for backups), and system-logger.
->
-> 📈 **Future-Proofing:** Some images (like nginx-unprivileged or haproxy) might be used for Ingress or specific database features you enable later. It is safer to have them in your local registry now than to get stuck in an air-gapped failure later.
+    > ---
+    > 📌 Note:
+    > Mirroring this full list of images is necessary. This list includes images like hcd:1.2.3-ubi and cql-router. 
+    > 
+    > These are not part of the standard Mission Control installation but are dynamically pulled when you create a database cluster. If you skip them now, your cluster creation will fail later with ImagePullBackOff.
+    >
+    > The list also includes critical operational tools like cassandra-reaper (for backups/repairs), medusa (for backups), and system-logger.
+    >
+    > 📈 **Future-Proofing:** Some images (like nginx-unprivileged or haproxy) might be used for Ingress or specific database features you enable later. It is safer to have them in your local registry now than to get stuck in an air-gapped failure later.
+    >
+    > ---
 
-- Create the `mirror_images.sh` script using the command below, and then run it.
+3. Create the `mirror_images.sh` script using the command below, and then run it.
 
-```shell
-cat > mirror_images.sh  <<'EOF'
-#!/bin/bash
+    ```shell
+    cat > mirror_images.sh  <<'EOF'
+    #!/bin/bash
 
-export NEXUS_USER=admin
-export NEXUS_PASS='password'  # Replace with your actual Nexus password
+    export NEXUS_USER=admin
+    export NEXUS_PASS='password'  # Replace with your actual Nexus password
 
-# Configuration
-INPUT_FILE="full_images.txt"
-DEST_REGISTRY="localhost:5000"
+    # Configuration
+    INPUT_FILE="full_images.txt"
+    DEST_REGISTRY="localhost:5000"
 
-# Check if input file exists
-if [ ! -f "$INPUT_FILE" ]; then
-    echo "Error: $INPUT_FILE not found."
-    exit 1
-fi
-
-# Check for credentials
-if [ -z "$NEXUS_USER" ] || [ -z "$NEXUS_PASS" ]; then
-    echo "Error: Please export NEXUS_USER and NEXUS_PASS environment variables."
-    exit 1
-fi
-
-echo "Starting mirror process from $INPUT_FILE..."
-echo "---------------------------------------------"
-
-while IFS= read -r line || [ -n "$line" ]; do
-    # 1. Clean the line: Remove 'docker pull ' and whitespace
-    RAW_IMAGE=$(echo "$line" | sed 's/^docker pull //' | tr -d '[:space:]')
-
-    # Skip empty lines
-    if [ -z "$RAW_IMAGE" ]; then
-        continue
+    # Check if input file exists
+    if [ ! -f "$INPUT_FILE" ]; then
+        echo "Error: $INPUT_FILE not found."
+        exit 1
     fi
 
-    # 2. Define Source (SRC)
-    # Skopeo requires the docker:// transport prefix
-    SRC="docker://${RAW_IMAGE}"
-
-    # 3. Define Destination (DEST)
-    # Logic: Remove 'proxy.replicated.com/' and prepend localhost:5000/
-    # Escaping dots in sed is good practice: proxy\.replicated\.com\/
-    REL_PATH=$(echo "$RAW_IMAGE" | sed 's/^proxy\.replicated\.com\///')
-    DEST="docker://${DEST_REGISTRY}/${REL_PATH}"
-
-    echo "Processing: $REL_PATH"
-    echo "  Src: $SRC"
-    echo "  Dst: $DEST"
-
-    # 4. Run Skopeo
-    # Note: Added --src-tls-verify=false in case the source proxy has cert issues,
-    # remove it if strict verification is required for source.
-    skopeo copy --all \
-      --dest-tls-verify=false \
-      --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
-      "$SRC" "$DEST"
-
-    # Check if the command failed
-    if [ $? -eq 0 ]; then
-        echo "✅ Success"
-    else
-        echo "❌ Failed to copy $REL_PATH"
+    # Check for credentials
+    if [ -z "$NEXUS_USER" ] || [ -z "$NEXUS_PASS" ]; then
+        echo "Error: Please export NEXUS_USER and NEXUS_PASS environment variables."
+        exit 1
     fi
-    echo "---"
 
-done < "$INPUT_FILE"
-EOF
-```
-```shell
-chmod +x mirror_images.sh 
-./mirror_images.sh
-```
+    echo "Starting mirror process from $INPUT_FILE..."
+    echo "---------------------------------------------"
 
-💡 **Expected Output:**
+    while IFS= read -r line || [ -n "$line" ]; do
+        # 1. Clean the line: Remove 'docker pull ' and whitespace
+        RAW_IMAGE=$(echo "$line" | sed 's/^docker pull //' | tr -d '[:space:]')
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# ./mirror_images.sh
-Starting mirror process from full_images.txt...
----------------------------------------------
-Processing: proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-  Src: docker://proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-  Dst: docker://localhost:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-Getting image source signatures
-Copying blob 2bc67ddfd4d5 done   | 
-Copying blob 3d97d209f7f9 done   | 
-...
-...
-Copying config c80704369e done   | 
-Writing manifest to image destination
-Writing manifest list to image destination
-Storing list signatures
-✅ Success
-...
-...
-```
+        # Skip empty lines
+        if [ -z "$RAW_IMAGE" ]; then
+            continue
+        fi
 
-- You can verify this with the curl command below.
+        # 2. Define Source (SRC)
+        # Skopeo requires the docker:// transport prefix
+        SRC="docker://${RAW_IMAGE}"
 
-```bash
-curl -s -u "${NEXUS_USER}:${NEXUS_PASS}" http://localhost:5000/v2/_catalog | python3 -m json.tool
-```
+        # 3. Define Destination (DEST)
+        # Logic: Remove 'proxy.replicated.com/' and prepend localhost:5000/
+        # Escaping dots in sed is good practice: proxy\.replicated\.com\/
+        REL_PATH=$(echo "$RAW_IMAGE" | sed 's/^proxy\.replicated\.com\///')
+        DEST="docker://${DEST_REGISTRY}/${REL_PATH}"
 
-- You can also verify this from the Nexus UI.
+        echo "Processing: $REL_PATH"
+        echo "  Src: $SRC"
+        echo "  Dst: $DEST"
 
-<p align="middle">
-  <img src="images/12.png" alt="drawing" width="500"/>
-</p>
+        # 4. Run Skopeo
+        # Note: Added --src-tls-verify=false in case the source proxy has cert issues,
+        # remove it if strict verification is required for source.
+        skopeo copy --all \
+        --dest-tls-verify=false \
+        --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
+        "$SRC" "$DEST"
+
+        # Check if the command failed
+        if [ $? -eq 0 ]; then
+            echo "✅ Success"
+        else
+            echo "❌ Failed to copy $REL_PATH"
+        fi
+        echo "---"
+
+    done < "$INPUT_FILE"
+    EOF
+    ```
+
+    ```shell
+    chmod +x mirror_images.sh 
+    ./mirror_images.sh
+    ```
+
+    💡 **Expected Output:**
+
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# ./mirror_images.sh
+    Starting mirror process from full_images.txt...
+    ---------------------------------------------
+    Processing: proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+    Src: docker://proxy.replicated.com/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+    Dst: docker://localhost:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+    Getting image source signatures
+    Copying blob 2bc67ddfd4d5 done   | 
+    Copying blob 3d97d209f7f9 done   | 
+    ...
+    ...
+    Copying config c80704369e done   | 
+    Writing manifest to image destination
+    Writing manifest list to image destination
+    Storing list signatures
+    ✅ Success
+    ...
+    ...
+    ```
+
+4. You can verify this with the curl command below. 👇
+
+    ```bash
+    curl -s -u "${NEXUS_USER}:${NEXUS_PASS}" http://localhost:5000/v2/_catalog | python3 -m json.tool
+    ```
+
+    1. You can also verify this from the Nexus UI.
+
+    <p align="middle">
+    <img src="images/12.png" alt="drawing" width="700"/>
+    </p>
 
 ### Node Pre-Warming for Worker Nodes
 
-First, let’s check whether the worker nodes can connect to the Nexus registry via DNS.
+1. First, let’s check whether the worker nodes can connect to the Nexus registry via DNS.
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc debug node/itz-h1lus0-worker-1
-Temporary namespace openshift-debug-78wkp is created for debugging node...
-Starting pod/itz-h1lus0-worker-1-debug-zbvb4 ...
-To use host binaries, run `chroot /host`
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc debug node/itz-h1lus0-worker-1
+    Temporary namespace openshift-debug-78wkp is created for debugging node...
+    Starting pod/itz-h1lus0-worker-1-debug-zbvb4 ...
+    To use host binaries, run `chroot /host`
 
-Pod IP: 10.10.10.21
-If you don't see a command prompt, try pressing enter.
-sh-5.1# 
-sh-5.1# chroot /host
-sh-5.1# getent hosts nexus-docker.nexus.svc.cluster.local
-sh-5.1# curl -v http://nexus-docker.nexus.svc.cluster.local:5000/v2/
-* Could not resolve host: nexus-docker.nexus.svc.cluster.local
-* Closing connection 0
-curl: (6) Could not resolve host: nexus-docker.nexus.svc.cluster.local
-sh-5.1# 
-sh-5.1# exit
-exit
-sh-5.1# exit
-exit
+    Pod IP: 10.10.10.21
+    If you don't see a command prompt, try pressing enter.
+    sh-5.1# 
+    sh-5.1# chroot /host
+    sh-5.1# getent hosts nexus-docker.nexus.svc.cluster.local
+    sh-5.1# curl -v http://nexus-docker.nexus.svc.cluster.local:5000/v2/
+    * Could not resolve host: nexus-docker.nexus.svc.cluster.local
+    * Closing connection 0
+    curl: (6) Could not resolve host: nexus-docker.nexus.svc.cluster.local
+    sh-5.1# 
+    sh-5.1# exit
+    exit
+    sh-5.1# exit
+    exit
 
-Removing debug pod ...
-Temporary namespace openshift-debug-78wkp was removed.
-```
+    Removing debug pod ...
+    Temporary namespace openshift-debug-78wkp was removed.
+    ```
 
-> 📌 Note: The cluster you are about to create will try to schedule pods onto the worker nodes immediately. Because your worker nodes cannot resolve the internal DNS (nexus-docker...) and cannot handle HTTP registries easily, we must manually cache the images on the nodes using the Service IP.
+    > ---
+    > 📌 Note: The cluster you are about to create will try to schedule pods onto the worker nodes immediately. Because your worker nodes cannot resolve the internal DNS (nexus-docker...) and cannot handle HTTP registries easily, we must manually cache the images on the nodes using the Service IP.
+    > 
+    > ---
 
-**Manually Pulling the Images**
+2. Manually Pulling the Images
 
-Go to your Bastion/Helper and log into each worker node (worker-1, worker-2, worker-3).
+    > Go to your Bastion/Helper and log into each worker node (worker-1, worker-2, worker-3).
 
-- First find the Nexus Service IP.
+    > First, find the Nexus service IP using the following command: `oc get svc nexus-docker -n nexus`
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc get svc nexus-docker -n nexus
-NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-nexus-docker   ClusterIP   172.30.127.201   <none>        5000/TCP   124m
-```
+    💡 **Expected Output:**
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc get svc nexus-docker -n nexus
+    NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+    nexus-docker   ClusterIP   172.30.127.201   <none>        5000/TCP   124m
+    ```
 
-> The following information is required for the next step.
+    > 👇 The following information is required for the next step.
 
-- **Nexus Service IP:** 172.30.127.201
-- **HCD Image:** proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd
+    > - **Nexus Service IP:** 172.30.127.201
+    > - **HCD Image:** proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd
 
-Next, connect to Worker 1, Worker 2, and Worker 3, and run the manual image pull.
+    > Next, connect to Worker 1, Worker 2, and Worker 3, and run the manual image pull.
 
-```shell
-# 1. Log into the node
-oc debug node/itz-h1lus0-worker-1  # Change to worker-2 / worker-3
+    ```shell
+    # 1. Log into the node
+    oc debug node/itz-h1lus0-worker-1  # Change to worker-2 / worker-3
 
-# 2. Switch to host
-chroot /host
+    # 2. Switch to host
+    chroot /host
 
-# 3. Login
-podman login --tls-verify=false -u admin -p password 172.30.127.201:5000
+    # 3. Login
+    podman login --tls-verify=false -u admin -p password 172.30.127.201:5000
 
-# 4. Pull the HCD Image (Copy this whole block)
-podman pull --tls-verify=false 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+    # 4. Pull the HCD Image (Copy this whole block)
+    podman pull --tls-verify=false 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
 
-# 5. Pull the System Logger
-podman pull --tls-verify=false 172.30.127.201:5000/k8ssandra/system-logger:v1.27.1
+    # 5. Pull the System Logger
+    podman pull --tls-verify=false 172.30.127.201:5000/k8ssandra/system-logger:v1.27.1
 
-# 6. Exit
-exit; exit
-```
+    # 6. Exit
+    exit; exit
+    ```
 
 ### Setting Up the Project (New Namespace)
 
 1. In the Mission Control UI, create a new project.
 
 <p align="middle">
-  <img src="images/13.png" alt="drawing" width="500"/>
+  <img src="images/13.png" alt="drawing" width="700"/>
 </p>
 
-2. Create the ServiceAccount for project-nbs-8t7ulz0o namespace
+2. Create the ServiceAccount for project-nbs-8t7ulz0o namespace.
 
     ```shell
     oc create sa mission-control -n project-nbs-8t7ulz0o
     ```
+
 3. Copy the `mc-regcred` secret from the source project to the new project.
 
     ```shell
@@ -1070,14 +1095,14 @@ exit; exit
     | oc apply -f -
     ```
 
-4. Attach the secret and link the secret to the service account
+4. Attach the secret and link the secret to the service account.
 
     ```shell
     oc patch sa mission-control -n project-nbs-8t7ulz0o \
     -p '{"imagePullSecrets":[{"name":"mc-regcred"}]}'
     ```
 
-5. Grant Root Permissions - required for HCD
+5. Grant Root Permissions - required for HCD.
 
     ```shell
     oc adm policy add-scc-to-user anyuid -z mission-control -n project-nbs-8t7ulz0o
@@ -1098,25 +1123,29 @@ exit; exit
 ## Deploying the Cluster via the Mission Control UI
 
 <p align="middle">
-  <img src="images/14.png" alt="drawing" width="500"/>
+  <img src="images/14.png" alt="drawing" width="700"/>
 </p>
 
-- **Create a cluster in the created project**
-	- **Configuration Parameters:**
-		- **Cluster-Name:** hcd-test-1
-		- **Type:** Hyper Converged Database (HCD)
-		- **Image:** 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-		- **Datacenter Name:** dc-1
-		- **Racks:** rack-1
-		- **Add Node Affinity Label `Optional`**
-			- **Label:** mission-control.datastax.com/role
-			- **Value:** database
-		- **Nodes Per Rack:** 3 (Matches your 3 physical nodes)
-		- **RAM:** 8		
-		- **Storage Class:** ocs-external-storagecluster-ceph-rbd
-		- **Storage Amount:** 10GiB
-		- **Superuser Password:** password
-		- **Heap Amount:** 4
+> ---
+> - **Create a cluster in the created project**
+> 	- **Configuration Parameters:**
+> 		- **Cluster-Name:** hcd-test-1
+> 		- **Type:** Hyper Converged Database (HCD)
+> 		- **Image:** 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
+> 		- **Datacenter Name:** dc-1
+> 		- **Racks:** rack-1
+> 		- **Add Node Affinity Label `Optional`**
+> 			- **Label:** mission-control.datastax.com/role
+> 			- **Value:** database
+> 		- **Nodes Per Rack:** 3 (Matches your 3 physical nodes)
+> 		- **RAM:** 8		
+> 		- **Storage Class:** ocs-external-storagecluster-ceph-rbd
+> 		- **Storage Amount:** 10GiB
+> 		- **Superuser Password:** password
+> 		- **Heap Amount:** 4
+>
+> ---
+
 
 ### Critical Patch
 
@@ -1181,89 +1210,17 @@ exit; exit
     hcd-test-1-hcd-test-1-dc-1-rack-1-sts-2   2/2     Running   0          7m55s
     ```
 
-    > ❗Why the Critical Patch Was Needed: The UI Workflow - the broken path:
-    > 1. T=0s (Create): UI creates the CassandraDatacenter with default (incompatible) settings.
+    > ---
+    > ❗The Broken UI Workflow and Why the Critical Patch Was Needed?
     >
-    > 2. T=1s (Operator Action): The Mission Control Operator sees this new object and immediately creates a StatefulSet and spawns Pods based on the incompatible settings.
+    > 1. **T=0s (Create):** UI creates the CassandraDatacenter with default (incompatible) settings.
     >
-    > 3. T=5s (Crash): The Pods try to start, fail to resolve DNS or fail to find config files, and enter a CrashLoopBackOff.
+    > 2. **T=1s (Operator Action):** The Mission Control Operator sees this new object and immediately creates a StatefulSet and spawns Pods based on the incompatible settings.
     >
-    > 4. T=10s (Patch): We apply the "Golden Patch" to fix the configuration.
+    > 3. **T=5s (Crash):** The Pods try to start, fail to resolve DNS or fail to find config files, and enter a CrashLoopBackOff.
     >
-    > 5. The Deadlock: Even though the configuration is now fixed, the Operator often waits to update the Pods because they are stuck in a crash loop. This forced us to manually run oc delete pod to "kick" the system into picking up the new configuration.
-
-## Option 2: Create a Cluster from the Template File
-
-Run the below script on your bastion/helper host. This file contains your cluster's rack topology, storage settings, and the critical patch fixes all in one. 
-
-```shell
-cat << 'EOF' > hcd-prod-template.yaml
-apiVersion: cassandra.datastax.com/v1beta1
-kind: CassandraDatacenter
-metadata:
-  name: hcd-prod-1-dc-1                 # <--- CHANGE CLUSTER NAME HERE
-  namespace: project-nbs-8t7ulz0o       # <--- CHANGE PROJECT HERE
-  labels:
-    mission-control.datastax.com/cluster-name: hcd-prod-1
-spec:
-  clusterName: hcd-prod-1               # <--- CHANGE CLUSTER NAME HERE
-  datacenterName: dc-1
-  serverType: hcd
-  serverVersion: 1.2.3
-  size: 3                               # 1 Rack x 3 Nodes (Matches Hardware)
-  racks:
-  - name: rack-1
-  
-  # GLOBAL IMAGE OVERRIDE (Fixes Main DB & Base Init)
-  dockerImageRepository: 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd
-  
-  resources:
-    requests:
-      memory: 8Gi
-      cpu: 1
-  config:
-    jvm-server-options:
-      initial_heap_size: 4G
-      max_heap_size: 4G
-
-  storageConfig:
-    cassandraDataVolumeClaimSpec:
-      storageClassName: ocs-external-storagecluster-ceph-rbd
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 10Gi
-
-  serviceAccountName: mission-control
-  superuserSecretName: hcd-prod-1-superuser
-
-  # --- THE CRITICAL FIXES (Baked in from start) ---
-  podTemplateSpec:
-    spec:
-      initContainers:
-      - name: server-config-init
-        # Force use of HCD Server Image (contains config files)
-        image: 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-        imagePullPolicy: IfNotPresent
-        # Force manual copy of config files
-        command:
-        - /bin/bash
-        - -c
-        - "cp -rn /opt/hcd/resources/cassandra/conf/* /config/ && echo 'Config copied successfully'"
-      containers:
-      - name: server-system-logger
-        # Force use of System Logger from local registry
-        image: 172.30.127.201:5000/k8ssandra/system-logger:v1.27.1
-        imagePullPolicy: IfNotPresent
-EOF
-```
-
-> ℹ️ Why Option-2 is better for Production
-> 1. **Zero Race Conditions:** The Operator sees the correct image paths and commands immediately. It creates the StatefulSet correctly on the very first try.
-> 
-> 2. **No Delete Pod Loop:** You don't need to kill pods to make them restart with new configs. They start correct.
-> 
-> 3. **GitOps Ready:** You can save this YAML file in a Git repository. If you ever need to disaster-recover your cluster, you just apply the file again.
-> 
-> 4. **UI Visibility:** Even though you created it via CLI, it will still appear in the Mission Control UI. The UI simply reads what is in the cluster; it doesn't care how it got there.
+    > 4. **T=10s (Patch):** We apply the "Golden Patch" to fix the configuration.
+    >
+    > 5. **The Deadlock:** Even though the configuration is now fixed, the Operator often waits to update the Pods because they are stuck in a crash loop. This forced us to manually run oc delete pod to "kick" the system into picking up the new configuration.
+    > 
+    > ---
