@@ -7,15 +7,15 @@ This runbook outlines the comprehensive procedure for deploying a production-rea
 It is necessary to provision a suitable environment for the installation. The most suitable option for IBM environments is the OpenShift Cluster (OCP-V) - IBM, located under TechZone Certified Base Images, as shown in the screenshot below.
 
 <p align="middle">
-  <img src="images/1.png" alt="drawing" width="500"/>
+  <img src="images/1.png" alt="drawing" width="700"/>
 </p>
 
 **The following options were selected for this setup:**
-- OpenShift Version: 4.18
-- Worker Node Count: 3
-- Worker Node Flavor: 8 vCPU x 32 GB - 100 GB ephemeral storage
+- **OpenShift Version:** 4.18
+- **Worker Node Count:** 3
+- **Worker Node Flavor:** 8 vCPU x 32 GB - 100 GB ephemeral storage
 
-Once the environment is ready, you can find the Bastion SSH connection and Bastion password details on the environment page. Using these credentials, you can connect to the server from your local machine.
+Once the environment is ready, you can find the bastion host SSH connection details and password on the environment page. Using these credentials, you can connect to the bastion host from your local machine.
 
 ```shell
 (base) oktay.tuncay@Oktay-Tuncay ~ % ssh itzuser@api.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com -p 10022
@@ -23,17 +23,17 @@ Once the environment is ready, you can find the Bastion SSH connection and Basti
 [itzuser@itz-h1lus0-helper-1 ~]$ sudo su -
 ```
 
-Click the OCP Console link on the same page, sign in to the OpenShift UI using the kube:admin user, and copy the token from the **Copy login command** section at the top of the page, as shown below.
+Click the OCP Console link on the same page, sign in to the OpenShift UI using the *kube:admin* user, and copy the token from the **Copy login command** section at the top of the page, as shown below.
 
 <p align="middle">
-  <img src="images/4.png" alt="drawing" width="500"/>
+  <img src="images/4.png" alt="drawing" width="700"/>
 </p>
 
 <p align="middle">
-  <img src="images/5.png" alt="drawing" width="500"/>
+  <img src="images/5.png" alt="drawing" width="700"/>
 </p>
 
-Authenticate to the OpenShift Container Platform (OCP) command-line interface (CLI) with the copied token. 
+Authenticate to the OpenShift Container Platform (OCP) command-line interface (CLI) using the token you copied.
 
 > 📌 Note: The token here is renewed at regular intervals.
 
@@ -46,197 +46,198 @@ You have access to 87 projects, the list has been suppressed. You can list all p
 Using project "mission-control".
 [root@itz-h1lus0-helper-1 ~]# 
 ```
-**Check `OC`, `Helm`, `Docker` are installed on the bastion.**
+1. **Check `OC`, `Helm`, `Docker` are installed on the bastion/helper node.**
 
-Make sure that Helm v3.12+ and Docker are installed on the server.
+    Make sure that Helm v3.12+ and Docker are installed on the server.
 
-```shell
-oc version
-helm version
-docker version
-```
+    ```shell
+    oc version
+    helm version
+    docker version
+    ```
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc version
-Client Version: 4.18.28
-Kustomize Version: v5.4.2
-Server Version: 4.18.28
-Kubernetes Version: v1.31.13
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc version
+    Client Version: 4.18.28
+    Kustomize Version: v5.4.2
+    Server Version: 4.18.28
+    Kubernetes Version: v1.31.13
+    ```
 
-In my case, I installed both Helm and Docker manually. When you check the Helm and Docker versions, you will see that they are installed, even if they were not present previously.
+    In my case, I installed both Helm and Docker manually. When you check their versions, you will see that they are now installed, even if they were not present before.
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# helm version
-bash: helm: command not found...
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# helm version
+    bash: helm: command not found...
 
-Install package 'helm' to provide command 'helm'? [N/y] y
+    Install package 'helm' to provide command 'helm'? [N/y] y
 
- * Waiting in queue... 
- * Loading list of packages.... 
-The following packages have to be installed:
- helm-3.19.0-1.el9.x86_64	The Kubernetes Package Manager
-Proceed with changes? [N/y] y
-...
-...
-```
+    * Waiting in queue... 
+    * Loading list of packages.... 
+    The following packages have to be installed:
+    helm-3.19.0-1.el9.x86_64	The Kubernetes Package Manager
+    Proceed with changes? [N/y] y
+    ...
+    ...
+    ```
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# docker version
-bash: docker: command not found...
-Install package 'podman-docker' to provide command 'docker'? [N/y] y
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# docker version
+    bash: docker: command not found...
+    Install package 'podman-docker' to provide command 'docker'? [N/y] y
 
- * Waiting in queue... 
- * Loading list of packages.... 
-The following packages have to be installed:
-...
-...
-Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
-Client:       Podman Engine
-Version:      5.6.0
-API Version:  5.6.0
-Go Version:   go1.24.6 (Red Hat 1.24.6-1.el9)
-Built:        Mon Nov 10 08:54:39 2025
-OS/Arch:      linux/amd64
-```
+    * Waiting in queue... 
+    * Loading list of packages.... 
+    The following packages have to be installed:
+    ...
+    ...
+    Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+    Client:       Podman Engine
+    Version:      5.6.0
+    API Version:  5.6.0
+    Go Version:   go1.24.6 (Red Hat 1.24.6-1.el9)
+    Built:        Mon Nov 10 08:54:39 2025
+    OS/Arch:      linux/amd64
+    ```
 
-It is recommended to check the storage class and available storage capacity before starting the installation.
+    It is recommended to check the storage class and available storage capacity before starting the installation.
 
-**Check Storageclass**
+2. **Check Storageclass**
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc get storageclass
-NAME                                             PROVISIONER                             RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
-ocs-external-storagecluster-ceph-rbd (default)   openshift-storage.rbd.csi.ceph.com      Delete          Immediate           true                   3h19m
-ocs-external-storagecluster-cephfs               openshift-storage.cephfs.csi.ceph.com   Delete          Immediate           true                   3h19m
-openshift-storage.noobaa.io                      openshift-storage.noobaa.io/obc         Delete          Immediate           false                  3h18m
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc get storageclass
+    NAME                                             PROVISIONER                             RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+    ocs-external-storagecluster-ceph-rbd (default)   openshift-storage.rbd.csi.ceph.com      Delete          Immediate           true                   3h19m
+    ocs-external-storagecluster-cephfs               openshift-storage.cephfs.csi.ceph.com   Delete          Immediate           true                   3h19m
+    openshift-storage.noobaa.io                      openshift-storage.noobaa.io/obc         Delete          Immediate           false                  3h18m
+    ```
 
-You can also check the storage capacity in the OpenShift UI (OCP Console).
+    You can also check the storage capacity in the OpenShift UI (OCP Console).
 
-<p align="middle">
-  <img src="images/6.png" alt="drawing" width="500"/>
-</p>
+    <p align="middle">
+    <img src="images/6.png" alt="drawing" width="700"/>
+    </p>
 
-**Check that `skopeo` and `yq` are installed on the bastion.**
+3. **Check that `skopeo` and `yq` are installed on the bastion.**
 
-```shell
-skopeo --version
-yq --version
-```
+    ```shell
+    skopeo --version
+    yq --version
+    ```
 
-In my case, I manually installed skopeo and yq. Verifying their versions shows that the installation was successful.
+    In my case, I manually installed skopeo and yq. Verifying their versions shows that the installation was successful.
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# skopeo --version
-bash: skopeo: command not found...
-Install package 'skopeo' to provide command 'skopeo'? [N/y] y
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# skopeo --version
+    bash: skopeo: command not found...
+    Install package 'skopeo' to provide command 'skopeo'? [N/y] y
 
- * Waiting in queue... 
- * Loading list of packages.... 
-...
-...
-```
+    * Waiting in queue... 
+    * Loading list of packages.... 
+    ...
+    ...
+    ```
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# yq --version
-bash: yq: command not found...
-Install package 'yq' to provide command 'yq'? [N/y] y
-...
-...
-yq (https://github.com/mikefarah/yq/) version v4.47.1
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# yq --version
+    bash: yq: command not found...
+    Install package 'yq' to provide command 'yq'? [N/y] y
+    ...
+    ...
+    yq (https://github.com/mikefarah/yq/) version v4.47.1
+    ```
 
 ### Deploying Nexus (Namespace, PVC, Deployment, Services, and Route)
 
-**What each component does:**
-- **Namespace nexus:** Isolates the Nexus deployment.
-- **ServiceAccount nexus-sa:** The pod runs under this service account.
-- **PVC nexus-data:** Provides persistent storage for Nexus (/nexus-data).
-- **Deployment nexus:** Runs the Nexus 3 container and exposes ports 8081 (UI) and 5000 (Docker registry).
-- **Service nexus:** Exposes the Nexus UI inside the cluster.
-- **Service nexus-docker:** Exposes the Docker registry inside the cluster on port 5000.
-- **Route nexus:** Exposes the Nexus UI externally through the OpenShift router (HTTPS, edge-terminated).
+> 📣 **Role of Each Component:**
+> - **Namespace nexus:** Isolates the Nexus deployment.
+> - **ServiceAccount nexus-sa:** The pod runs under this service account.
+> - **PVC nexus-data:** Provides persistent storage for Nexus (/nexus-data).
+> - **Deployment nexus:** Runs the Nexus 3 container and exposes ports 8081 (UI) and 5000 (Docker registry).
+> - **Service nexus:** Exposes the Nexus UI inside the cluster.
+> - **Service nexus-docker:** Exposes the Docker registry inside the cluster on port 5000.
+> - **Route nexus:** Exposes the Nexus UI externally through the OpenShift router (HTTPS, edge-terminated).
 
 
-You can use the following command to download the `nexus.yaml` file to the helper node.
+1. Use the following command to download the `nexus.yaml` file to the helper node.
 
-```shell
- wget https://github.com/oktytncy/airgapped-hcd-openshift-runbook/blob/main/manifests/nexus.yaml
- ```
+    ```shell
+    wget https://github.com/oktytncy/airgapped-hcd-openshift-runbook/blob/main/manifests/nexus.yaml
+    ```
 
- After downloading the YAML file, you can deploy Nexus using the command below.
+2. After downloading the YAML file, deploy Nexus using the command below.
 
-```shell
- oc apply -f nexus.yaml
-```
+    ```shell
+    oc apply -f nexus.yaml
+    ```
 
-**Expected Output:**
+    💡 **Expected Output:**
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# ls
-anaconda-ks.cfg  nexus.yaml  original-ks.cfg
-[root@itz-h1lus0-helper-1 ~]# oc apply -f nexus.yaml
-namespace/nexus created
-serviceaccount/nexus-sa created
-persistentvolumeclaim/nexus-data created
-Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "nexus" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "nexus" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "nexus" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "nexus" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
-deployment.apps/nexus created
-service/nexus created
-service/nexus-docker created
-route.route.openshift.io/nexus created
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# ls
+    anaconda-ks.cfg  nexus.yaml  original-ks.cfg
+    [root@itz-h1lus0-helper-1 ~]# oc apply -f nexus.yaml
+    namespace/nexus created
+    serviceaccount/nexus-sa created
+    persistentvolumeclaim/nexus-data created
+    Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "nexus" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "nexus" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "nexus" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "nexus" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+    deployment.apps/nexus created
+    service/nexus created
+    service/nexus-docker created
+    route.route.openshift.io/nexus created
+    ```
 
-Grant the required SCC to allow Nexus to write to /nexus-data.
+3. Grant the required SCC to allow Nexus to write to /nexus-data.
 
-```shell
-oc adm policy add-scc-to-user anyuid -z nexus-sa -n nexus
-```
+    ```shell
+    oc adm policy add-scc-to-user anyuid -z nexus-sa -n nexus
+    ```
 
-Verify and retrieve the admin password — it may take a few minutes for the pod to reach Running status.
+4. Verify and retrieve the admin password — it may take a few minutes for the pod to reach the **Running** status.
 
-```shell
-oc get pods -n nexus -w
-NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
-echo "Nexus UI: https://${NEXUS_HOST}"
-POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
-oc exec -n nexus "$POD" -- cat /nexus-data/admin.password
-# Username: admin
-# Password: (value printed above)
-```
+    ```shell
+    oc get pods -n nexus -w
+    NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
+    echo "Nexus UI: https://${NEXUS_HOST}"
+    POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
+    oc exec -n nexus "$POD" -- cat /nexus-data/admin.password
+    # Username: admin
+    # Password: (value printed above)
+    ```
 
-**Expected Output:**
+    💡 **Expected Output:**
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# oc get pods -n nexus 
-NAME                     READY   STATUS    RESTARTS   AGE
-nexus-5d654f779f-l2jdd   1/1     Running   0          56s
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# echo "Nexus UI: https://${NEXUS_HOST}"
-Nexus UI: https://nexus-nexus.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# oc exec -n nexus "$POD" -- cat /nexus-data/admin.password
-346e5b83-e718-4503-951c-be28deec7681[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# 
-```
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# oc get pods -n nexus 
+    NAME                     READY   STATUS    RESTARTS   AGE
+    nexus-5d654f779f-l2jdd   1/1     Running   0          56s
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# echo "Nexus UI: https://${NEXUS_HOST}"
+    Nexus UI: https://nexus-nexus.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# oc exec -n nexus "$POD" -- cat /nexus-data/admin.password
+    346e5b83-e718-4503-951c-be28deec7681[root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# 
+    ```
 
-```shell
-# In my case, the Nexus admin password was: 346e5b83-e718-4503-951c-be28deec7681
-```
+    ```shell
+    # In my case, the Nexus admin password was: 346e5b83-e718-4503-951c-be28deec7681
+    ```
 
-- Nexus UI: `https://nexus-nexus.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com`
-- Admin Password: `346e5b83-e718-4503-951c-be28deec7681`
+   - Nexus UI: `https://nexus-nexus.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com`
+   - Admin Password: `346e5b83-e718-4503-951c-be28deec7681`
 
-Allow write access to /nexus-data (OCP SCC)
+5. Allow write access to /nexus-data (OCP SCC)
 
-```shell
-oc adm policy add-scc-to-user anyuid -z nexus-sa -n nexus
-```
+    ```shell
+    oc adm policy add-scc-to-user anyuid -z nexus-sa -n nexus
+    ```
 
+---
 ### Configure Nexus repositories (UI)
 
 Log in to the Nexus UI using the admin password you retrieved. On the first login, Nexus will ask you to change the admin password. When prompted, set a new admin password
@@ -244,18 +245,17 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
 #### Create repositories in the UI
 
 <p align="middle">
-  <img src="images/8.png" alt="drawing" width="400"/>
+  <img src="images/8.png" alt="drawing" width="700"/>
 </p>
 
-- **Settings** -> Repository -> Repositories -> Create repository:
+**Settings** -> Repository -> Repositories -> Create repository:
   - **docker (hosted):** Name it docker-local, set HTTP port to 5000, and click save — leave all other settings as they are.
   - **helm (hosted):** Name it helm-local, and click save - leave all other settings as they are.
 
 
-> #### 📌 Note  
+> #### ❗ Note  
 > Creating these repositories in Nexus is **absolutely required** for an air-gapped installation.  
 >
-> ---
 >
 > #### 💡 Why this is necessary
 >
@@ -286,350 +286,350 @@ Log in to the Nexus UI using the admin password you retrieved. On the first logi
 
 ### Mirror the Mission Control chart and images to Nexus
 
-First, log in to the Replicated registry from the Enterprise Portal.
-> https://enterprise.replicated.com/mission-control
+1. Log in to the Replicated registry from the Enterprise Portal. You may need a valid license associated with your email address.
+   
+    > https://enterprise.replicated.com/mission-control
 
-> You may need a valid license associated with your email address.
+    <p align="middle">
+    <img src="images/2.png" alt="drawing" width="700"/>
+    </p>
 
-<p align="middle">
-  <img src="images/2.png" alt="drawing" width="500"/>
-</p>
+2. In the `Export credentials and log in` section, you will see commands such as:
 
-In the `Export credentials and log in` section, you’ll see commands such as:
+    ```bash
+    export AUTH_TOKEN=xxxxxxxxxR1BlbXpETU93R08zS3ltN3oyazxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    docker login proxy.replicated.com -u oktay.tuncay@ibm.com -p $AUTH_TOKEN
+    helm registry login registry.replicated.com --username oktay.tuncay@ibm.com --password $AUTH_TOKEN
+    ```
 
-```bash
-export AUTH_TOKEN=xxxxxxxxxR1BlbXpETU93R08zS3ltN3oyazxxxxxxxxxxxxxxxxxxxxxxxxxxx
-docker login proxy.replicated.com -u oktay.tuncay@ibm.com -p $AUTH_TOKEN
-helm registry login registry.replicated.com --username oktay.tuncay@ibm.com --password $AUTH_TOKEN
-```
+3. After exporting the credentials on the helper node, pull the Mission Control chart using the helm pull command below.
 
-After exporting the credentials on the helper node, pull the Mission Control chart using the helm pull command below.
+    ```shell
+    helm pull oci://registry.replicated.com/mission-control/mission-control --version 1.15.0
+    ```
 
-```shell
-helm pull oci://registry.replicated.com/mission-control/mission-control --version 1.15.0
-```
+    💡 **Expected Output:**
 
-**Expected Output:**
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# export AUTH_TOKEN=eyJpIjoiMxxxxxxxxxxxxxxxxxxxxxxxxx
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# docker login proxy.replicated.com -u oktay.tuncay@ibm.com -p $AUTH_TOKEN
+    Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
+    Login Succeeded!
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm registry login registry.replicated.com --username oktay.tuncay@ibm.com --password $AUTH_TOKEN
+    WARNING: Using --password via the CLI is insecure. Use --password-stdin.
+    Login Succeeded
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm pull oci://registry.replicated.com/mission-control/mission-control --version 1.15.0
+    Pulled: registry.replicated.com/mission-control/mission-control:1.15.0
+    Digest: sha256:b1561b7878bffda983ffbefb8e382d58a53bc61614842377ef5f90a7698221d6
+    ```
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# export AUTH_TOKEN=eyJpIjoiMxxxxxxxxxxxxxxxxxxxxxxxxx
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# docker login proxy.replicated.com -u oktay.tuncay@ibm.com -p $AUTH_TOKEN
-Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
-Login Succeeded!
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm registry login registry.replicated.com --username oktay.tuncay@ibm.com --password $AUTH_TOKEN
-WARNING: Using --password via the CLI is insecure. Use --password-stdin.
-Login Succeeded
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm pull oci://registry.replicated.com/mission-control/mission-control --version 1.15.0
-Pulled: registry.replicated.com/mission-control/mission-control:1.15.0
-Digest: sha256:b1561b7878bffda983ffbefb8e382d58a53bc61614842377ef5f90a7698221d6
-```
+4. Create a `disable-observability.yaml` file using the command below.
 
-- Create a `disable-observability.yaml` file using the command below.
+    ```shell
+    cat << 'EOF' > disable-observability.yaml
+    loki:
+    enabled: false
 
-```shell
-cat << 'EOF' > disable-observability.yaml
-loki:
-  enabled: false
+    mimir:
+    enabled: false
 
-mimir:
-  enabled: false
+    grafana:
+    enabled: false
+    EOF
+    ```
 
-grafana:
-  enabled: false
-EOF
-```
+5. Render the manifests in order to harvest the required images.
 
-- Render the manifests in order to harvest the required images.
+    ```shell
+    helm template mission-control oci://registry.replicated.com/mission-control/mission-control \
+    --version 1.15.0 \
+    -n mission-control \
+    -f disable-observability.yaml \
+    > rendered.yaml
+    ```
 
-```shell
-helm template mission-control oci://registry.replicated.com/mission-control/mission-control \
-  --version 1.15.0 \
-  -n mission-control \
-  -f disable-observability.yaml \
-  > rendered.yaml
-```
+6. Extract all container image references using the command below.
 
-- Extract all container image references using the command below.
+    ```shell
+    yq e -r '.. | .image? | select(.)' rendered.yaml | sort -u > images.txt
+    ```
 
-```shell
-yq e -r '.. | .image? | select(.)' rendered.yaml | sort -u > images.txt
-```
+7. Clean up images.txt by removing empty lines, comments, and any unnecessary entries.
 
-- Clean up images.txt by removing empty lines, comments, and any unnecessary entries.
+    ```shell
+    sed -i '/^---$/d;/^$/d' images.txt
+    ```
 
-```shell
-sed -i '/^---$/d;/^$/d' images.txt
-```
+8. Port-forward the Nexus Docker service and mirror the images into Nexus.
 
-- Port-forward the Nexus Docker service and mirror the images into Nexus.
+    ```shell
+    nohup oc -n nexus port-forward svc/nexus-docker 5000:5000 >/tmp/nexus-registry-pf.log 2>&1 &
+    ```
 
-```shell
-nohup oc -n nexus port-forward svc/nexus-docker 5000:5000 >/tmp/nexus-registry-pf.log 2>&1 &
-```
+9. ☑️ Verify (leave it running)
 
-- Verify (leave it running)
-```shell
-ps aux | grep port-forward
-```
+    ```shell
+    ps aux | grep port-forward
+    ```
 
-> 📌 Note  
-> You need port forwarding because your Bastion host (itz-h1lus0-helper-1) is outside the Kubernetes cluster network, while the Nexus registry service (nexus-docker) runs inside the cluster network. Without port forwarding, the `skopeo` copy command will fail with ‘Connection Refused’ because the Bastion has no direct access to the Nexus registry.”
+    > 📌 Note  
+    > You need port forwarding because your Bastion host (itz-h1lus0-helper-1) is outside the Kubernetes cluster network, while the Nexus registry service (nexus-docker) runs inside the cluster network. Without port forwarding, the `skopeo` copy command will fail with ‘Connection Refused’ because the Bastion has no direct access to the Nexus registry.”
 
-- Mirror all images and strip the source registry from the path.
+10. Mirror all images and strip the source registry from the path.
 
-```shell
-export NEXUS_USER=admin
-export NEXUS_PASS='password'
-
-
-while read -r IMG; do
-  REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
-  echo "Copying $IMG -> localhost:5000/$REPO_TAG"
-
-  skopeo copy --all \
-  	--dest-tls-verify=false \
-  	--dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
-  	docker://"$IMG" docker://localhost:5000/"$REPO_TAG"
-done < images.txt
-```
-
-Since you pushed the images to the `docker-local` repository using skopeo, they are now indexed and visible in the Nexus web interface
-
-<p align="middle">
-  <img src="images/10.png" alt="drawing" width="500"/>
-</p>
-
-- Upload the chart archive to `helm‑local`.
-
-```shell
-NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
-NEXUS_URL="https://${NEXUS_HOST}"
-
-# Upload chart (replace password with your changed admin password)
-curl -u admin:'password' \
-  --upload-file mission-control-1.15.0.tgz \
-  "${NEXUS_URL}/repository/helm-local/"
-```
-
-- Add the internal Helm repository.
-
-```shell
-helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
-helm repo update
-```
-
-- Verify
-```shell
-helm search repo mc-internal/mission-control
-```
-
-**Expected Output:**
-
-```shell
-[root@itz-h1lus0-helper-1 ~]# NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# NEXUS_URL="https://${NEXUS_HOST}"
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# curl -u admin:'password' \
-  --upload-file mission-control-1.15.0.tgz \
-  "${NEXUS_URL}/repository/helm-local/"
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
-"mc-internal" has been added to your repositories
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm repo update
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "mc-internal" chart repository
-Update Complete. ⎈Happy Helming!⎈
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm search repo mc-internal/mission-control
-NAME                       	CHART VERSION	APP VERSION	DESCRIPTION                                       
-mc-internal/mission-control	1.15.0       	1.15.0     	Kubernetes tooling which handles the provisioni...
-```
-
-> 📌 Note
-> The curl command fetched the mission-control-1.15.0.tgz file, which you previously downloaded and manually uploaded to the helm-local repository in Nexus.
-> 
-> After this step, the chart is now hosted on the network and accessible via HTTP. The helm repo add mc-internal ... command informs your local Helm client:
-> 
-> `I have a new source for charts. It is located at this internal Nexus URL, and these are the credentials to access it.`
-> 
-> You named this new source mc-internal. From now on, whenever you want to install software from this internal repository, you will refer to it by that name.
-
-#### Install cert‑manager (air‑gapped)
-
-- Download CRDs once (to include them in your bundle)
-
-```shell
-curl -L -o cert-manager.crds.yaml https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.crds.yaml
-```
-
-- Mirror cert‑manager chart and images
-
-```shell
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
-helm pull jetstack/cert-manager --version v1.14.5
-```
-
-```shell
-curl -u admin:'password' \
-  --upload-file cert-manager-v1.14.5.tgz \
-  "${NEXUS_URL}/repository/helm-local/"
-```
-
-- Render to find images
-  
-```shell
-helm template cert-manager jetstack/cert-manager --version v1.14.5 -n cert-manager > cm.yaml
-yq e -r '.. | .image? | select(.)' cm.yaml | sort -u > cert-images.txt
-```
-
-**Expected Output:**
-
-```shell
-[root@itz-h1lus0-helper-1 ~]# helm repo add jetstack https://charts.jetstack.io
-"jetstack" has been added to your repositories
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm repo update
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "mc-internal" chart repository
-...Successfully got an update from the "jetstack" chart repository
-Update Complete. ⎈Happy Helming!⎈
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm pull jetstack/cert-manager --version v1.14.5
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# curl -u admin:'password' \
-  --upload-file cert-manager-v1.14.5.tgz \
-  "${NEXUS_URL}/repository/helm-local/"
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# helm template cert-manager jetstack/cert-manager --version v1.14.5 -n cert-manager > cm.yaml
-[root@itz-h1lus0-helper-1 ~]#
-[root@itz-h1lus0-helper-1 ~]# yq e -r '.. | .image? | select(.)' cm.yaml | sort -u > cert-images.txt
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# cat cert-images.txt 
----
-quay.io/jetstack/cert-manager-cainjector:v1.14.5
-quay.io/jetstack/cert-manager-controller:v1.14.5
-quay.io/jetstack/cert-manager-startupapicheck:v1.14.5
-quay.io/jetstack/cert-manager-webhook:v1.14.5
-```
-
-- Clean up cert-images.txt by removing empty lines, comments, and any unnecessary entries.
-
-```shell
-sed -i '/^---$/d;/^$/d' cert-images.txt
-```
-
-> 📌 Note
-> The High-Level Reason: Mission Control uses TLS (HTTPS) for secure communication between its internal services. It relies on cert-manager to automatically generate and manage these security certificates. If cert-manager is not installed, Mission Control will fail to start.
+    ```shell
+    export NEXUS_USER=admin
+    export NEXUS_PASS='password'
 
 
-- Mirror the Images to Nexus
+    while read -r IMG; do
+    REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
+    echo "Copying $IMG -> localhost:5000/$REPO_TAG"
 
-```shell
-export NEXUS_USER=admin
-export NEXUS_PASS='password'
-
-while read -r IMG; do
-  REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
-  echo "Copying $IMG -> localhost:5000/$REPO_TAG"
-
-  skopeo copy --all \
-   	--dest-tls-verify=false \
-   	--dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
- 	docker://"$IMG" docker://localhost:5000/"$REPO_TAG"
-done < cert-images.txt
-```
-
-**Expected Output:**
-
-```shell
-[root@itz-h1lus0-helper-1 ~]# export NEXUS_USER=admin
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# export NEXUS_PASS='password'
-[root@itz-h1lus0-helper-1 ~]# 
-[root@itz-h1lus0-helper-1 ~]# while read -r IMG; do
-  REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
-  echo "Copying $IMG -> localhost:5000/$REPO_TAG"
-
-  skopeo copy --all \
+    skopeo copy --all \
         --dest-tls-verify=false \
         --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
         docker://"$IMG" docker://localhost:5000/"$REPO_TAG"
-done < cert-images.txt
-Copying quay.io/jetstack/cert-manager-cainjector:v1.14.5 -> localhost:5000/jetstack/cert-manager-cainjector:v1.14.5
-...
-...
-Storing list signatures
-```
+    done < images.txt
+    ```
 
-- Install cert-manager in the Air-Gapped Cluster
+    Since you pushed the images to the `docker-local` repository using skopeo, they are now indexed and visible in the Nexus web interface
 
-- Create a Namespace and CRDs
+    <p align="middle">
+    <img src="images/10.png" alt="drawing" width="700"/>
+    </p>
 
-```shell
-oc create namespace cert-manager || true
-kubectl apply -f cert-manager.crds.yaml
-```
 
-- Pull secret for Nexus (cert-manager ns)
+11. Upload the chart archive to `helm‑local`.
 
-```shell
-oc create secret docker-registry mc-regcred \
-  --docker-server=nexus-docker.nexus.svc.cluster.local:5000 \
-  --docker-username=admin \
-  --docker-password='password' \
-  -n cert-manager
-```
-- Install from the Internal Helm Repository
+    ```shell
+    NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
+    NEXUS_URL="https://${NEXUS_HOST}"
 
-```shell
-helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
-helm repo update
-```
+    # Upload chart (replace password with your changed admin password)
+    curl -u admin:'password' \
+    --upload-file mission-control-1.15.0.tgz \
+    "${NEXUS_URL}/repository/helm-local/"
+    ```
 
-```shell
-helm upgrade --install cert-manager mc-internal/cert-manager \
-  -n cert-manager \
-  -f cert-manager.crds.yaml \
-  --version v1.14.5
-```
+12. Add the internal Helm repository.
 
-**Expected Output:**
+    ```shell
+    helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
+    helm repo update
+    ```
 
-```shell
-[root@itz-h1lus0-helper-1 ~]# helm upgrade --install cert-manager mc-internal/cert-manager \
-  -n cert-manager \
-  -f cert-manager.crds.yaml \
-  --version v1.14.5
-Release "cert-manager" does not exist. Installing it now.
-NAME: cert-manager
-LAST DEPLOYED: Wed Nov 26 17:06:58 2025
-NAMESPACE: cert-manager
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
-NOTES:
-cert-manager v1.14.5 has been deployed successfully!
+    ☑️ Verify
+    ```shell
+    helm search repo mc-internal/mission-control
+    ```
 
-In order to begin issuing certificates, you will need to set up a ClusterIssuer
-or Issuer resource (for example, by creating a 'letsencrypt-staging' issuer).
+    💡 **Expected Output:**
 
-More information on the different types of issuers and how to configure them
-can be found in our documentation:
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# NEXUS_URL="https://${NEXUS_HOST}"
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# curl -u admin:'password' \
+    --upload-file mission-control-1.15.0.tgz \
+    "${NEXUS_URL}/repository/helm-local/"
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
+    "mc-internal" has been added to your repositories
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm repo update
+    Hang tight while we grab the latest from your chart repositories...
+    ...Successfully got an update from the "mc-internal" chart repository
+    Update Complete. ⎈Happy Helming!⎈
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm search repo mc-internal/mission-control
+    NAME                       	CHART VERSION	APP VERSION	DESCRIPTION                                       
+    mc-internal/mission-control	1.15.0       	1.15.0     	Kubernetes tooling which handles the provisioni...
+    ```
 
-https://cert-manager.io/docs/configuration/
+    > 📌 Note
+    > The curl command fetched the mission-control-1.15.0.tgz file, which you previously downloaded and manually uploaded to the helm-local repository in Nexus.
+    > 
+    > After this step, the chart is now hosted on the network and accessible via HTTP. The helm repo add mc-internal ... command informs your local Helm client:
+    > 
+    > `I have a new source for charts. It is located at this internal Nexus URL, and these are the credentials to access it.`
+    > 
+    > You named this new source mc-internal. From now on, whenever you want to install software from this internal repository, you will refer to it by that name.
 
-For information on how to configure cert-manager to automatically provision
-Certificates for Ingress resources, take a look at the `ingress-shim`
-documentation:
+#### Install cert‑manager (air‑gapped)
 
-https://cert-manager.io/docs/usage/ingress/
-```
+1. Download CRDs once (to include them in your bundle)
+
+    ```shell
+    curl -L -o cert-manager.crds.yaml https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.crds.yaml
+    ```
+
+2. Mirror cert‑manager chart and images
+
+    ```shell
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo update
+    helm pull jetstack/cert-manager --version v1.14.5
+    ```
+
+    ```shell
+    curl -u admin:'password' \
+    --upload-file cert-manager-v1.14.5.tgz \
+    "${NEXUS_URL}/repository/helm-local/"
+    ```
+
+3. Render to find images
+
+    ```shell
+    helm template cert-manager jetstack/cert-manager --version v1.14.5 -n cert-manager > cm.yaml
+    yq e -r '.. | .image? | select(.)' cm.yaml | sort -u > cert-images.txt
+    ```
+
+    💡 **Expected Output:**
+
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# helm repo add jetstack https://charts.jetstack.io
+    "jetstack" has been added to your repositories
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm repo update
+    Hang tight while we grab the latest from your chart repositories...
+    ...Successfully got an update from the "mc-internal" chart repository
+    ...Successfully got an update from the "jetstack" chart repository
+    Update Complete. ⎈Happy Helming!⎈
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm pull jetstack/cert-manager --version v1.14.5
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# curl -u admin:'password' \
+    --upload-file cert-manager-v1.14.5.tgz \
+    "${NEXUS_URL}/repository/helm-local/"
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# helm template cert-manager jetstack/cert-manager --version v1.14.5 -n cert-manager > cm.yaml
+    [root@itz-h1lus0-helper-1 ~]#
+    [root@itz-h1lus0-helper-1 ~]# yq e -r '.. | .image? | select(.)' cm.yaml | sort -u > cert-images.txt
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# cat cert-images.txt 
+    ---
+    quay.io/jetstack/cert-manager-cainjector:v1.14.5
+    quay.io/jetstack/cert-manager-controller:v1.14.5
+    quay.io/jetstack/cert-manager-startupapicheck:v1.14.5
+    quay.io/jetstack/cert-manager-webhook:v1.14.5
+    ```
+
+4. Clean up cert-images.txt by removing empty lines, comments, and any unnecessary entries.
+
+    ```shell
+    sed -i '/^---$/d;/^$/d' cert-images.txt
+    ```
+
+    > 📌 Note
+    > The High-Level Reason: Mission Control uses TLS (HTTPS) for secure communication between its internal services. It relies on cert-manager to automatically generate and manage these security certificates. If cert-manager is not installed, Mission Control will fail to start.
+
+5. Mirror the Images to Nexus
+
+    ```shell
+    export NEXUS_USER=admin
+    export NEXUS_PASS='password'
+
+    while read -r IMG; do
+    REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
+    echo "Copying $IMG -> localhost:5000/$REPO_TAG"
+
+    skopeo copy --all \
+        --dest-tls-verify=false \
+        --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
+        docker://"$IMG" docker://localhost:5000/"$REPO_TAG"
+    done < cert-images.txt
+    ```
+
+    💡 **Expected Output:**
+
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# export NEXUS_USER=admin
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# export NEXUS_PASS='password'
+    [root@itz-h1lus0-helper-1 ~]# 
+    [root@itz-h1lus0-helper-1 ~]# while read -r IMG; do
+    REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
+    echo "Copying $IMG -> localhost:5000/$REPO_TAG"
+
+    skopeo copy --all \
+            --dest-tls-verify=false \
+            --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
+            docker://"$IMG" docker://localhost:5000/"$REPO_TAG"
+    done < cert-images.txt
+    Copying quay.io/jetstack/cert-manager-cainjector:v1.14.5 -> localhost:5000/jetstack/cert-manager-cainjector:v1.14.5
+    ...
+    ...
+    Storing list signatures
+    ```
+
+6. Install cert-manager in the Air-Gapped Cluster
+
+    ```shell
+    # Create a Namespace and CRDs
+    oc create namespace cert-manager || true
+    kubectl apply -f cert-manager.crds.yaml
+    ```
+
+7. Pull secret for Nexus (cert-manager ns)
+
+    ```shell
+    oc create secret docker-registry mc-regcred \
+    --docker-server=nexus-docker.nexus.svc.cluster.local:5000 \
+    --docker-username=admin \
+    --docker-password='password' \
+    -n cert-manager
+    ```
+
+8. Install from the Internal Helm Repository
+
+    ```shell
+    helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
+    helm repo update
+    ```
+
+    ```shell
+    helm upgrade --install cert-manager mc-internal/cert-manager \
+    -n cert-manager \
+    -f cert-manager.crds.yaml \
+    --version v1.14.5
+    ```
+
+    💡 **Expected Output:**
+
+    ```shell
+    [root@itz-h1lus0-helper-1 ~]# helm upgrade --install cert-manager mc-internal/cert-manager \
+    -n cert-manager \
+    -f cert-manager.crds.yaml \
+    --version v1.14.5
+    Release "cert-manager" does not exist. Installing it now.
+    NAME: cert-manager
+    LAST DEPLOYED: Wed Nov 26 17:06:58 2025
+    NAMESPACE: cert-manager
+    STATUS: deployed
+    REVISION: 1
+    TEST SUITE: None
+    NOTES:
+    cert-manager v1.14.5 has been deployed successfully!
+
+    In order to begin issuing certificates, you will need to set up a ClusterIssuer
+    or Issuer resource (for example, by creating a 'letsencrypt-staging' issuer).
+
+    More information on the different types of issuers and how to configure them
+    can be found in our documentation:
+
+    https://cert-manager.io/docs/configuration/
+
+    For information on how to configure cert-manager to automatically provision
+    Certificates for Ingress resources, take a look at the `ingress-shim`
+    documentation:
+
+    https://cert-manager.io/docs/usage/ingress/
+    ```
 
 
 - Verify
@@ -639,7 +639,7 @@ oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.c
 oc get pods -n cert-manager
 ```
 
-**Expected Output:**
+💡 **Expected Output:**
 
 ```shell
 [root@itz-h1lus0-helper-1 ~]# oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
@@ -693,7 +693,7 @@ sudo yum install -y httpd-tools
 echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
 ```
 
-**Expected Output:**
+💡 **Expected Output:**
 
 ```shell
 [root@itz-h1lus0-helper-1 ~]# echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
@@ -790,7 +790,7 @@ HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.ho
 echo "Mission Control UI: https://${HOST}"
 ```
 
-**Expected Output:**
+💡 **Expected Output:**
 ```shell
 [root@itz-h1lus0-helper-1 ~]# HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
 echo "Mission Control UI: https://${HOST}"
@@ -944,7 +944,7 @@ chmod +x mirror_images.sh
 ./mirror_images.sh
 ```
 
-**Expected Output:**
+💡 **Expected Output:**
 
 ```shell
 [root@itz-h1lus0-helper-1 ~]# ./mirror_images.sh
@@ -1089,7 +1089,7 @@ exit; exit
     oc get sa mission-control -n project-nbs-8t7ulz0o -o yaml | grep mc-regcred
     ```
 
-    **Expected Output:**
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# oc get sa mission-control -n project-nbs-8t7ulz0o -o yaml | grep mc-regcred
     - name: mc-regcred
@@ -1166,13 +1166,13 @@ exit; exit
     oc delete pod -n $PROJ_NAME --all --force --grace-period=0
     ```
 
-4. Verify the status from the command line.
+4. ☑️ Verify the status from the command line.
 
     ```shell
     oc get pods -n $PROJ_NAME -w
     ```
 
-    **Expected Output:**
+    💡 **Expected Output:**
     ```shell
     [root@itz-h1lus0-helper-1 ~]# oc get pods -n $PROJ_NAME
     NAME                                      READY   STATUS    RESTARTS   AGE
