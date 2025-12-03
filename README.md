@@ -719,19 +719,19 @@ Using project "mission-control".
 
     > You will use the password created in the previous step in the following command.
 
-    ```shell
-    cat > dex-reset.yaml <<'EOF'
-    dex:
-    config:
-        enablePasswordDB: true
-        staticPasswords:
-        - email: admin@example.com
-            hash: '$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG'
-            userID: "00000000-0000-0000-0000-000000000001"
-            username: admin
-    EOF
-    ```
-
+	```shell
+	cat > dex-reset.yaml <<'EOF'
+	dex:
+	  config:
+	    enablePasswordDB: true
+	    staticPasswords:
+	      - email: admin@example.com
+	        hash: '$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG'
+	        userID: 00000000-0000-0000-0000-000000000001
+	        username: admin
+	EOF
+	```
+    
     > The username and password specified in this step will be the credentials used to connect to Mission Control UI.
 
 3. Create airgap-images.yaml file
