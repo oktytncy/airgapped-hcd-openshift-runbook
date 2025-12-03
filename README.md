@@ -338,16 +338,16 @@ Using project "mission-control".
 4. Create a `disable-observability.yaml` file using the command below.
 
     ```shell
-    cat << 'EOF' > disable-observability.yaml
-    loki:
-    enabled: false
+	cat << 'EOF' > disable-observability.yaml
+	loki:
+	  enabled: false
 
-    mimir:
-    enabled: false
+	mimir:
+	  enabled: false
 
-    grafana:
-    enabled: false
-    EOF
+	grafana:
+	  enabled: false
+	EOF
     ```
 
 5. Render the manifests in order to harvest the required images.
