@@ -166,7 +166,7 @@ Using project "mission-control".
 1. Use the following command to download the `nexus.yaml` file to the helper node.
 
     ```shell
-    wget https://github.com/oktytncy/airgapped-hcd-openshift-runbook/blob/main/manifests/nexus.yaml
+    wget https://raw.githubusercontent.com/oktytncy/airgapped-hcd-openshift-runbook/main/manifests/nexus.yaml -O nexus.yaml
     ```
 
 2. After downloading the YAML file, deploy Nexus using the command below.
@@ -228,9 +228,9 @@ Using project "mission-control".
     [root@itz-h1lus0-helper-1 ~]# 
     ```
 
-    ```shell
-    # In my case, the Nexus admin password was: 346e5b83-e718-4503-951c-be28deec7681
-    ```
+
+    > In my case, the Nexus admin password was: 
+    
 
    - Nexus UI: `https://nexus-nexus.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com`
    - Admin Password: `346e5b83-e718-4503-951c-be28deec7681`
