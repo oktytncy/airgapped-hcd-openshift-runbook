@@ -694,6 +694,7 @@ Using project "mission-control".
 1. Create values-defaults.yaml file
 
     ```shell
+    CHART_VERSION=1.15.0
     helm show values mc-internal/mission-control \
     --version ${CHART_VERSION} \
     > values-defaults.yaml
