@@ -731,23 +731,23 @@ Using project "mission-control".
 	        username: admin
 	EOF
 	```
-    
+
     > The username and password specified in this step will be the credentials used to connect to Mission Control UI.
 
 3. Create airgap-images.yaml file
 
-    ```shell
-    cat > airgap-images.yaml <<'EOF'
-    global:
-    clusterScoped: true
-    clusterScopedResources: true
-    imageConfig:
-        defaults:
-        registry: nexus-docker.nexus.svc.cluster.local:5000
-        pullSecrets:
-            - mc-regcred
-    EOF
-    ```
+	```shell
+	cat > airgap-images.yaml <<'EOF'
+	global:
+	  clusterScoped: true
+	  clusterScopedResources: true
+	  imageConfig:
+	    defaults:
+	      registry: nexus-docker.nexus.svc.cluster.local:5000
+	      pullSecrets:
+	        - mc-regcred
+	EOF
+	```
 
     > Now you are ready to run the Mission Control installation with the following command.
 
