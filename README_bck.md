@@ -201,9 +201,6 @@ Using project "mission-control".
 
     ```shell
     oc get pods -n nexus -w
-    ```
-
-    ```shell 
     NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
     echo "Nexus UI: https://${NEXUS_HOST}"
     POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
