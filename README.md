@@ -52,7 +52,13 @@ Using project "mission-control".
 
     ```shell
     oc version
+    ```
+
+    ```shell
     helm version
+    ```
+
+    ```shell
     docker version
     ```
 
@@ -125,6 +131,9 @@ Using project "mission-control".
 
     ```shell
     skopeo --version
+    ```
+
+    ```shell
     yq --version
     ```
 
@@ -205,8 +214,17 @@ Using project "mission-control".
 
     ```shell 
     NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
+    ```
+
+    ```shell 
     echo "Nexus UI: https://${NEXUS_HOST}"
+    ```
+
+    ```shell 
     POD=$(oc get pod -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}')
+    ```
+
+    ```shell 
     oc exec -n nexus "$POD" -- cat /nexus-data/admin.password
     # Username: admin
     # Password: (value printed above)
@@ -258,7 +276,7 @@ Using project "mission-control".
 > ---
 > **Settings** -> Repository -> Repositories -> Create repository:
 >  - **docker (hosted):** Name it docker-local, set HTTP port to 5000, and click save — leave all other settings as they are.
->  - **helm (hosted):** Name it helm-local, and click save - leave all other settings as they are.
+>  - **helm (hosted):** Name it helm-local, set Deployment policy to Allow redeploy, and click save - leave all other settings as they are.
 >
 > ---
 
@@ -423,7 +441,9 @@ Using project "mission-control".
     ```shell
     NEXUS_HOST=$(oc get route nexus -n nexus -o jsonpath='{.spec.host}')
     NEXUS_URL="https://${NEXUS_HOST}"
+    ```
 
+    ```shell
     # Upload chart (replace password with your changed admin password)
     curl -u admin:'password' \
     --upload-file mission-control-1.15.0.tgz \
@@ -434,6 +454,9 @@ Using project "mission-control".
 
     ```shell
     helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
+    ```
+
+    ```shell
     helm repo update
     ```
 
@@ -490,7 +513,13 @@ Using project "mission-control".
 
     ```shell
     helm repo add jetstack https://charts.jetstack.io
+    ```
+
+    ```shell
     helm repo update
+    ```
+
+    ```shell
     helm pull jetstack/cert-manager --version v1.14.5
     ```
 
@@ -504,7 +533,14 @@ Using project "mission-control".
 
     ```shell
     helm template cert-manager jetstack/cert-manager --version v1.14.5 -n cert-manager > cm.yaml
+    ```
+
+    ```shell
     yq e -r '.. | .image? | select(.)' cm.yaml | sort -u > cert-images.txt
+    ```
+
+    ```shell
+    cat cert-images.txt 
     ```
 
     💡 **Expected Output:**
@@ -554,7 +590,9 @@ Using project "mission-control".
     ```shell
     export NEXUS_USER=admin
     export NEXUS_PASS='password'
+    ```
 
+    ```shell
     while read -r IMG; do
     REPO_TAG=$(echo "$IMG" | sed -E 's#^[^/]+/##')
     echo "Copying $IMG -> localhost:5000/$REPO_TAG"
@@ -593,6 +631,9 @@ Using project "mission-control".
     ```shell
     # Create a Namespace and CRDs
     oc create namespace cert-manager || true
+    ```
+
+    ```shell
     kubectl apply -f cert-manager.crds.yaml
     ```
 
@@ -609,8 +650,12 @@ Using project "mission-control".
 8. Install from the Internal Helm Repository
 
     ```shell
-    helm repo add mc-internal "${NEXUS_URL}/repository/helm-local/" --username admin --password 'password'
     helm repo update
+    ```
+
+    ```shell
+    # Optional but nice sanity check
+    helm search repo mc-internal/cert-manager
     ```
 
     ```shell
@@ -656,6 +701,9 @@ Using project "mission-control".
 
     ```shell
     oc get crd certificates.cert-manager.io issuers.cert-manager.io clusterissuers.cert-manager.io
+    ```
+
+    ```shell
     oc get pods -n cert-manager
     ```
 
@@ -682,7 +730,9 @@ Using project "mission-control".
     ```shell
     # Pull secret for mission-control namespace
     oc new-project mission-control || true
+    ```
 
+    ```shell
     oc create secret docker-registry mc-regcred \
     --docker-server=nexus-docker.nexus.svc.cluster.local:5000 \
     --docker-username=admin \
@@ -709,48 +759,69 @@ Using project "mission-control".
 
     ```shell
     sudo yum install -y httpd-tools
-
-    echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
     ```
 
-    💡 **Expected Output:**
-
-    ```shell
-    [root@itz-h1lus0-helper-1 ~]# echo 'MY_SECRET_PASSWORD' | htpasswd -BinC 10 admin | cut -d: -f2
-    $2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG
-    ```
-
-    > You will use the password created in the previous step in the following command.
+    > The username and password specified in this step will be the credentials used to connect to Mission Control UI.
 
 	```shell
-	cat > dex-reset.yaml <<'EOF'
+	PASSWORD="MY_SECRET_PASSWORD"
+	```
+
+	```shell
+	HASH=$(echo -n "$PASSWORD" | htpasswd -BinC 10 admin | cut -d: -f2)
+	```
+
+	> You will use the `HASH` password created in the previous step in the following command.
+
+	```shell
+	cat > dex-reset.yaml <<EOF
 	dex:
 	  config:
 	    enablePasswordDB: true
 	    staticPasswords:
 	      - email: admin@example.com
-	        hash: '$2y$10$kq8sTyUkS/UMYxYKDfR/auPtDUXp8Q20xVddo.LTJHSeCpLpvVffG'
+	        hash: '$HASH'
 	        userID: 00000000-0000-0000-0000-000000000001
 	        username: admin
 	EOF
 	```
 
-    > The username and password specified in this step will be the credentials used to connect to Mission Control UI.
-
 3. Create airgap-images.yaml file
 
 	```shell
-	cat > airgap-images.yaml <<'EOF'
+    NEXUS_IP=$(oc get svc nexus-docker -n nexus -o jsonpath='{.spec.clusterIP}')
+	```
+
+	```shell
+	cat > airgap-images.yaml <<EOF
 	global:
 	  clusterScoped: true
 	  clusterScopedResources: true
 	  imageConfig:
 	    defaults:
-	      registry: nexus-docker.nexus.svc.cluster.local:5000
 	      pullSecrets:
 	        - mc-regcred
+	    overrides:
+	      registry: "${NEXUS_IP}:5000"
 	EOF
 	```
+
+    ☑️ Verify the contents of your `airgap-images.yaml` file.
+
+    💡 **Expected Output:**
+    ```shell
+    [root@itz-c36ytq-helper-1 ~]# cat airgap-images.yaml 
+    global:
+    clusterScoped: true
+    clusterScopedResources: true
+    imageConfig:
+        defaults:
+        pullSecrets:
+            - mc-regcred
+        overrides:
+        registry: "172.30.62.85:5000"
+    [root@itz-c36ytq-helper-1 ~]# 
+    ```
 
     > Now you are ready to run the Mission Control installation with the following command.
 
@@ -808,6 +879,9 @@ Using project "mission-control".
 
     ```shell
     HOST=$(oc get route mission-control-ui -n mission-control -o jsonpath='{.spec.host}')
+    ```
+    
+    ```shell
     echo "Mission Control UI: https://${HOST}"
     ```
 
@@ -823,7 +897,7 @@ Using project "mission-control".
     >
     > **Mission Control UI:** ```http https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com```
     > 
-    > **Username:** admin@example.com
+    > **Username:** `admin@example.com`
     > **Password:** MY_SECRET_PASSWORD
     >
     > ---
@@ -964,7 +1038,10 @@ Using project "mission-control".
     ```
 
     ```shell
-    chmod +x mirror_images.sh 
+    chmod +x mirror_images.sh
+    ```
+
+    ```shell
     ./mirror_images.sh
     ```
 
