@@ -819,7 +819,7 @@ Using project "mission-control".
         pullSecrets:
             - mc-regcred
         overrides:
-        registry: "172.30.62.85:5000"
+        registry: "172.30.127.201:5000"
     [root@itz-c36ytq-helper-1 ~]# 
     ```
 
@@ -1004,13 +1004,19 @@ Using project "mission-control".
         fi
 
         # 2. Define Source (SRC)
-        # Skopeo requires the docker:// transport prefix
         SRC="docker://${RAW_IMAGE}"
 
         # 3. Define Destination (DEST)
-        # Logic: Remove 'proxy.replicated.com/' and prepend localhost:5000/
-        # Escaping dots in sed is good practice: proxy\.replicated\.com\/
+        # Default: strip proxy.replicated.com/ and keep the rest
         REL_PATH=$(echo "$RAW_IMAGE" | sed 's/^proxy\.replicated\.com\///')
+
+        # Special case: k8ssandra images under 'anonymous/k8ssandra/...'
+        # should be stored as 'k8ssandra/...', because the pods pull
+        # 172.30.x.x:5000/k8ssandra/<image>:<tag>
+        if [[ "$REL_PATH" == anonymous/k8ssandra/* ]]; then
+            REL_PATH=${REL_PATH#anonymous/}
+        fi
+
         DEST="docker://${DEST_REGISTRY}/${REL_PATH}"
 
         echo "Processing: $REL_PATH"
@@ -1018,14 +1024,11 @@ Using project "mission-control".
         echo "  Dst: $DEST"
 
         # 4. Run Skopeo
-        # Note: Added --src-tls-verify=false in case the source proxy has cert issues,
-        # remove it if strict verification is required for source.
         skopeo copy --all \
-        --dest-tls-verify=false \
-        --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
-        "$SRC" "$DEST"
+          --dest-tls-verify=false \
+          --dest-creds "${NEXUS_USER}:${NEXUS_PASS}" \
+          "$SRC" "$DEST"
 
-        # Check if the command failed
         if [ $? -eq 0 ]; then
             echo "✅ Success"
         else
@@ -1080,78 +1083,61 @@ Using project "mission-control".
     <img src="images/12.png" alt="drawing" width="700"/>
     </p>
 
-### Node Pre-Warming for Worker Nodes
+#### Configuring Nexus as an Insecure Registry
 
-1. First, let’s check whether the worker nodes can connect to the Nexus registry via DNS.
+> ---
+> 📌 Note The High-Level Reason: By default, OpenShift assumes that all external container registries are using HTTPS. In this air-gapped setup, however, the Nexus Docker registry is exposed over HTTP on port 5000 (e.g. 172.30.127.201:5000).
+>
+> This mismatch caused the worker nodes to try to speak HTTPS to an HTTP endpoint, resulting in image pull errors during the HCD deployment.
+>
+> If this configuration is not applied:
+> - Worker nodes will continue to assume HTTPS when talking to 172.30.127.201:5000.
+> - HCD pods will fail with image pull errors such as:
+>   - http: server gave HTTP response to HTTPS client
+>   - ErrImagePull
+>   - ImagePullBackOff
+> 
+> The only workaround would be to manually pre-warm each worker node with podman pull for every required image, which is error-prone and **not acceptable for production-grade deployments**.
+>
+> By marking Nexus as an insecure registry, we ensure a clean, repeatable, and fully automated image pull path for all Mission Control and HCD components in this air-gapped environment.
+> 
+> ---
+
+1. On the helper node (or any machine with oc and cluster-admin privileges), run:
 
     ```shell
-    [root@itz-h1lus0-helper-1 ~]# oc debug node/itz-h1lus0-worker-1
-    Temporary namespace openshift-debug-78wkp is created for debugging node...
-    Starting pod/itz-h1lus0-worker-1-debug-zbvb4 ...
-    To use host binaries, run `chroot /host`
+    oc edit image.config.openshift.io/cluster
+    ```
 
-    Pod IP: 10.10.10.21
-    If you don't see a command prompt, try pressing enter.
-    sh-5.1# 
-    sh-5.1# chroot /host
-    sh-5.1# getent hosts nexus-docker.nexus.svc.cluster.local
-    sh-5.1# curl -v http://nexus-docker.nexus.svc.cluster.local:5000/v2/
-    * Could not resolve host: nexus-docker.nexus.svc.cluster.local
-    * Closing connection 0
-    curl: (6) Could not resolve host: nexus-docker.nexus.svc.cluster.local
-    sh-5.1# 
-    sh-5.1# exit
-    exit
-    sh-5.1# exit
-    exit
+2. In the editor, under spec:, add or extend the following block and include your Nexus IP. In my case, it's `172.30.127.201`. You can find your nexus_ip using the following command:
 
-    Removing debug pod ...
-    Temporary namespace openshift-debug-78wkp was removed.
+    ```shell
+    oc get svc nexus-docker -n nexus -o jsonpath='{.spec.clusterIP}'
+    ```
+
+    ```yaml
+    spec:
+    registrySources:
+        insecureRegistries:
+        - 172.30.127.201:5000
     ```
 
     > ---
-    > 📌 Note: The cluster you are about to create will try to schedule pods onto the worker nodes immediately. Because your worker nodes cannot resolve the internal DNS (nexus-docker...) and cannot handle HTTP registries easily, we must manually cache the images on the nodes using the Service IP.
-    > 
+    > 📌 **Note:** 
+    > - If registrySources already exists, simply append 172.30.127.201:5000 to the insecureRegistries list.
+    > - Ensure the indentation matches the structure shown above.
     > ---
 
-2. Manually Pulling the Images
+    > OpenShift’s Machine Config Operator will automatically roll out the updated configuration to all nodes.
 
-    > Go to your Bastion/Helper and log into each worker node (worker-1, worker-2, worker-3).
-
-    > First, find the Nexus service IP using the following command: `oc get svc nexus-docker -n nexus`
-
+3. Monitor the rollout using `oc get mcp` command. Wait until all pools show `UPDATED True` and `DEGRADED False`.
+   
     💡 **Expected Output:**
-    ```shell
-    [root@itz-h1lus0-helper-1 ~]# oc get svc nexus-docker -n nexus
-    NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
-    nexus-docker   ClusterIP   172.30.127.201   <none>        5000/TCP   124m
-    ```
-
-    > 👇 The following information is required for the next step.
-
-    > - **Nexus Service IP:** 172.30.127.201
-    > - **HCD Image:** proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd
-
-    > Next, connect to Worker 1, Worker 2, and Worker 3, and run the manual image pull.
-
-    ```shell
-    # 1. Log into the node
-    oc debug node/itz-h1lus0-worker-1  # Change to worker-2 / worker-3
-
-    # 2. Switch to host
-    chroot /host
-
-    # 3. Login
-    podman login --tls-verify=false -u admin -p password 172.30.127.201:5000
-
-    # 4. Pull the HCD Image (Copy this whole block)
-    podman pull --tls-verify=false 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
-
-    # 5. Pull the System Logger
-    podman pull --tls-verify=false 172.30.127.201:5000/k8ssandra/system-logger:v1.27.1
-
-    # 6. Exit
-    exit; exit
+    ```shell    
+    [root@itz-c36ytq-helper-1 ~]# oc get mcp
+    NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+    worker   rendered-worker-8e3e9c0ad05329c1ba342f78219609fa   True      False      False      3              3                   3                     0                      4h54m
+    master   rendered-master-b860708684821696c29ab46f7301641d   True      False      False      3              3                   3                     0                      4h54m        0                      4h54m
     ```
 
 ### Setting Up the Project (New Namespace)
@@ -1163,41 +1149,45 @@ Using project "mission-control".
 </p>
 
 2. Create the ServiceAccount for project-nbs-8t7ulz0o namespace.
+   
+    ```shell
+    PROJ_NAME="project-nbs-8t7ulz0o"
+    ```
 
     ```shell
-    oc create sa mission-control -n project-nbs-8t7ulz0o
+    oc create sa mission-control -n "${PROJ_NAME}"
     ```
 
 3. Copy the `mc-regcred` secret from the source project to the new project.
 
     ```shell
-    oc get secret mc-regcred -n mission-control -o yaml \
-    | sed 's/namespace: mission-control/namespace: project-nbs-8t7ulz0o/' \
-    | oc apply -f -
+	oc get secret mc-regcred -n mission-control -o yaml \
+	| sed "s/namespace: mission-control/namespace: ${PROJ_NAME}/" \
+	| oc apply -f -
     ```
 
 4. Attach the secret and link the secret to the service account.
 
     ```shell
-    oc patch sa mission-control -n project-nbs-8t7ulz0o \
-    -p '{"imagePullSecrets":[{"name":"mc-regcred"}]}'
+	oc patch sa mission-control -n "${PROJ_NAME}" \
+	  -p '{"imagePullSecrets":[{"name":"mc-regcred"}]}'
     ```
 
 5. Grant Root Permissions - required for HCD.
 
     ```shell
-    oc adm policy add-scc-to-user anyuid -z mission-control -n project-nbs-8t7ulz0o
+	oc adm policy add-scc-to-user anyuid -z mission-control -n "${PROJ_NAME}"
     ```
 
 6. Run the following command to confirm that everything is linked correctly.
 
     ```shell
-    oc get sa mission-control -n project-nbs-8t7ulz0o -o yaml | grep mc-regcred
+    oc get sa mission-control -n "${PROJ_NAME}" -o yaml | grep mc-regcred
     ```
 
     💡 **Expected Output:**
     ```shell
-    [root@itz-h1lus0-helper-1 ~]# oc get sa mission-control -n project-nbs-8t7ulz0o -o yaml | grep mc-regcred
+    [root@itz-h1lus0-helper-1 ~]# oc get sa mission-control -n "${PROJ_NAME}" -o yaml | grep mc-regcred
     - name: mc-regcred
     ```
 
@@ -1226,89 +1216,3 @@ Using project "mission-control".
 > 		- **Heap Amount:** 4
 >
 > ---
-
-
-### Critical Patch
-
-> ⚠️ This is important step. We must apply a patch that forces the cluster to use the Local IP, the HCD Image for initialization, and the Manual Copy Command. Run this immediately after creating the cluster in the UI.
-
-1. Define Variables - updated with your Nexus IP
-
-    ```shell
-    PROJ_NAME="project-nbs-8t7ulz0o"
-    CLUSTER_NAME="hcd-test-1"
-    # Note: Using the IP you found: 172.30.127.201
-    HCD_IMAGE="172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi"
-    LOGGER_IMAGE="172.30.127.201:5000/k8ssandra/system-logger:v1.27.1"
-    ```
-
-2. Apply the Patch: This forces the cluster to use the local IP and the manual config copy command
-
-    ```shell
-    oc patch cassandradatacenter ${CLUSTER_NAME}-dc-1 -n $PROJ_NAME --type='merge' \
-    -p "{\"spec\":{
-        \"dockerImageRepository\": \"$HCD_IMAGE\",
-        \"podTemplateSpec\": {
-        \"spec\": {
-            \"initContainers\": [
-            {
-                \"name\": \"server-config-init\", 
-                \"image\": \"$HCD_IMAGE\", 
-                \"imagePullPolicy\": \"IfNotPresent\",
-                \"command\": [\"/bin/bash\", \"-c\", \"cp -rn /opt/hcd/resources/cassandra/conf/* /config/ && echo 'Config copied successfully'\"]
-            }
-            ],
-            \"containers\": [
-            {
-                \"name\": \"server-system-logger\", 
-                \"image\": \"$LOGGER_IMAGE\", 
-                \"imagePullPolicy\": \"IfNotPresent\"
-            }
-            ]
-        }
-        }
-    }}"
-    ```
-
-3. Perform a forced restart to apply the patch immediately.
-
-    ```shell
-    oc delete pod -n $PROJ_NAME --all --force --grace-period=0
-    ```
-
-4. ☑️ Verify the status from the command line.
-
-    ```shell
-    oc get pods -n $PROJ_NAME -w
-    ```
-
-    💡 **Expected Output:**
-    ```shell
-    [root@itz-h1lus0-helper-1 ~]# oc get pods -n $PROJ_NAME
-    NAME                                      READY   STATUS    RESTARTS   AGE
-    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   1/2     Running   0          7m55s
-    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-1   2/2     Running   0          7m55s
-    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-2   2/2     Running   0          7m55s
-    ```
-
-    ---
-    <p align="middle">
-        <img src="images/3.png" alt="drawing" width="700"/>
-    </p>
-    
-    ---
-
-    > ---
-    > ❗The Broken UI Workflow and Why the Critical Patch Was Needed?
-    >
-    > 1. **T=0s (Create):** UI creates the CassandraDatacenter with default (incompatible) settings.
-    >
-    > 2. **T=1s (Operator Action):** The Mission Control Operator sees this new object and immediately creates a StatefulSet and spawns Pods based on the incompatible settings.
-    >
-    > 3. **T=5s (Crash):** The Pods try to start, fail to resolve DNS or fail to find config files, and enter a CrashLoopBackOff.
-    >
-    > 4. **T=10s (Patch):** We apply the "Golden Patch" to fix the configuration.
-    >
-    > 5. **The Deadlock:** Even though the configuration is now fixed, the Operator often waits to update the Pods because they are stuck in a crash loop. This forced us to manually run oc delete pod to "kick" the system into picking up the new configuration.
-    > 
-    > ---
