@@ -393,13 +393,13 @@ Using project "mission-control".
     sed -i '/^---$/d;/^$/d' images.txt
     ```
 
-8. Port-forward the Nexus Docker service and mirror the images into Nexus.
+8. Port-forward the Nexus Docker service and mirror the images into Nexus (leave it running). 
 
     ```shell
     nohup oc -n nexus port-forward svc/nexus-docker 5000:5000 >/tmp/nexus-registry-pf.log 2>&1 &
     ```
 
-9. ☑️ Verify (leave it running)
+9. ☑️ Verify
 
     ```shell
     ps aux | grep port-forward
@@ -628,14 +628,14 @@ Using project "mission-control".
 
 6. Install cert-manager in the Air-Gapped Cluster
 
-    ```shell
-    # Create a Namespace and CRDs
-    oc create namespace cert-manager || true
-    ```
-
-    ```shell
-    kubectl apply -f cert-manager.crds.yaml
-    ```
+    1. Create a Namespace and CRDs
+        ```shell
+        oc create namespace cert-manager || true
+        ```
+    2. Apply the Custom Resource Definitions (CRDs) for cert-manager into your Kubernetes cluster.
+        ```shell
+        kubectl apply -f cert-manager.crds.yaml
+        ```
 
 7. Pull secret for Nexus (cert-manager ns)
 
@@ -836,7 +836,11 @@ Using project "mission-control".
     --version ${CHART_VERSION}
     ```
 
-4. Check the status with the `oc get pods -n mission-control` command
+4. Check the status with the below command.
+
+    ```shell
+    oc get pods -n mission-control -w
+    ```
 
     💡 **Expected Output:**
     ```shell
@@ -898,6 +902,7 @@ Using project "mission-control".
     > **Mission Control UI:** ```http https://mission-control-ui-mission-control.apps.itz-h1lus0.infra01-lb.wdc04.techzone.ibm.com```
     > 
     > **Username:** `admin@example.com`
+    >
     > **Password:** MY_SECRET_PASSWORD
     >
     > ---
@@ -1103,13 +1108,19 @@ Using project "mission-control".
 > 
 > ---
 
-1. On the helper node (or any machine with oc and cluster-admin privileges), run:
+1. Check the Nexus IP using the following command.
+
+    ```shell
+    oc get svc nexus-docker -n nexus -o jsonpath='{.spec.clusterIP}{"\n"}'
+    ```
+
+2. On the helper node (or any machine with oc and cluster-admin privileges), run the following command.
 
     ```shell
     oc edit image.config.openshift.io/cluster
     ```
 
-2. In the editor, under spec:, add or extend the following block and include your Nexus IP. In my case, it's `172.30.127.201`. You can find your nexus_ip using the following command:
+3. In the editor, under spec:, add or extend the following block and include your Nexus IP. In my case, it's `172.30.127.201`. You can find your nexus_ip using the following command:
 
     ```shell
     oc get svc nexus-docker -n nexus -o jsonpath='{.spec.clusterIP}'
@@ -1130,14 +1141,38 @@ Using project "mission-control".
 
     > OpenShift’s Machine Config Operator will automatically roll out the updated configuration to all nodes.
 
-3. Monitor the rollout using `oc get mcp` command. Wait until all pools show `UPDATED True` and `DEGRADED False`.
+4. Re-read the object and check the field.
+
+    ```
+    oc get image.config.openshift.io/cluster -o yaml | grep -A5 registrySources
+    ```
+
+    💡 **Expected Output:**
+    ```yaml   
+    [root@itz-usft6l-helper-1 ~]# oc get image.config.openshift.io/cluster -o yaml | grep -A5 registrySources
+    registrySources:
+        insecureRegistries:
+        - 172.30.127.201:5000
+    ```
+
+1. Monitor the rollout using the below command and wait until all pools show **`UPDATED True`** and **`DEGRADED False`**. 
+
+    ```shell
+    oc get mcp -w
+    ```
+
+    > 🕐 This step may take some time!
    
     💡 **Expected Output:**
     ```shell    
-    [root@itz-c36ytq-helper-1 ~]# oc get mcp
+    [root@itz-usft6l-helper-1 ~]# oc get mcp -w
     NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
-    worker   rendered-worker-8e3e9c0ad05329c1ba342f78219609fa   True      False      False      3              3                   3                     0                      4h54m
-    master   rendered-master-b860708684821696c29ab46f7301641d   True      False      False      3              3                   3                     0                      4h54m        0                      4h54m
+    master   rendered-master-5f128c23b54708825952495e5a82b640   False     True       False      3              2                   2                     0                      137m
+    worker   rendered-worker-b74a070c9b8091a859dfeb91d623bad2   False     True       False      3              1                   1                     0                      137m
+    worker   rendered-worker-b74a070c9b8091a859dfeb91d623bad2   False     True       False      3              2                   2                     0                      138m
+    worker   rendered-worker-b74a070c9b8091a859dfeb91d623bad2   False     True       False      3              2                   2                     0                      138m
+    master   rendered-master-2bfad73bd41e1b9c96c5803816930ae3   True      False      False      3              3                   3                     0                      140m
+    worker   rendered-worker-d86dbccb0e034e40245a579334be9f91   True      False      False      3              3                   3                     0                      141m
     ```
 
 ### Setting Up the Project (New Namespace)
@@ -1148,9 +1183,15 @@ Using project "mission-control".
   <img src="images/13.png" alt="drawing" width="700"/>
 </p>
 
-2. Create the ServiceAccount for project-nbs-8t7ulz0o namespace.
-   
+2. Create a ServiceAccount for the namespace created above.
+       
     ```shell
+    # (optional) - you can also list project names using the following command.
+    oc get projects -o json | jq -r '.items | sort_by(.metadata.creationTimestamp)[].metadata.name'
+    ```
+
+    ```shell
+    # create a shell variable called PROJ_NAME
     PROJ_NAME="project-nbs-8t7ulz0o"
     ```
 
@@ -1202,7 +1243,6 @@ Using project "mission-control".
 > 	- **Configuration Parameters:**
 > 		- **Cluster-Name:** hcd-test-1
 > 		- **Type:** Hyper Converged Database (HCD)
-> 		- **Image:** 172.30.127.201:5000/proxy/mission-control/559669398656.dkr.ecr.us-west-2.amazonaws.com/engops-shared/hcd/prod/hcd:1.2.3-ubi
 > 		- **Datacenter Name:** dc-1
 > 		- **Racks:** rack-1
 > 		- **Add Node Affinity Label `Optional`**
@@ -1216,3 +1256,62 @@ Using project "mission-control".
 > 		- **Heap Amount:** 4
 >
 > ---
+
+
+💡 **Expected Output:**
+```shell
+[root@itz-usft6l-helper-1 ~]# oc get pods -n $PROJ_NAME -w
+NAME                                      READY   STATUS    RESTARTS   AGE
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   1/2     Running   0          3m38s
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-1   2/2     Running   0          3m38s
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-2   2/2     Running   0          3m38s
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m28s
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m28s
+hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m29s
+```
+
+🔧 **Helpful Commands**
+
+1. Quickly see what Reaper is complaining about without dumping huge logs.
+
+    ```shell
+    oc logs <POD_NAME> -n $PROJ_NAME --tail=20
+    ```
+
+2. Shows detailed info about a pod: spec, status, containers, volumes, and at the bottom an Events section (scheduling, image pull errors, restarts, etc.).
+
+    ```shell
+    oc describe pod <POD_NAME> -n $PROJ_NAME | sed -n '/Events/,$p'
+    ```
+
+3. See why the Reaper pod is crashing / pending / failing without scrolling through the entire describe.
+
+    ```shell
+    REAPER_POD=$(oc get pods -n $PROJ_NAME -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep reaper)
+    ```
+
+    ```shell
+    oc describe pod -n "${PROJ_NAME}" $REAPER_POD | sed -n '/Events/,$p'
+    ```
+
+4. Check if cqlsh pod is failing due to image pull errors, DNS issues, auth problems, etc.
+   
+    ```shell
+    CQLSH_POD=$(oc get pods -n $PROJ_NAME -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep cqlsh)
+    ```
+    
+    ```shell
+    oc describe pod -n "${PROJ_NAME}" hcd-test-1-hcd-test-1-dc-1-cqlsh-5788595d8d-w6jd2 | sed -n '/Events/,$p'
+    ```
+
+5. Deletes all pods in the namespace $PROJ_NAME.
+
+    ```shell
+    oc delete pod -n $PROJ_NAME --all
+    ```
+
+6. Force deletion from the API side, even if the kubelet doesn’t confirm clean termination.
+
+    ```shell
+    oc delete pod -n $PROJ_NAME --all --force --grace-period=0
+    ```
