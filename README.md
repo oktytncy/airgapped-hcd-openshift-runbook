@@ -1017,8 +1017,15 @@ Using project "mission-control".
 
         # Special case: k8ssandra images under 'anonymous/k8ssandra/...'
         # should be stored as 'k8ssandra/...', because the pods pull
-        # 172.30.x.x:5000/k8ssandra/<image>:<tag>
+        # <nexus-ip>:5000/k8ssandra/<image>:<tag>
         if [[ "$REL_PATH" == anonymous/k8ssandra/* ]]; then
+            REL_PATH=${REL_PATH#anonymous/}
+        fi
+
+        # Special case: Reaper images under 'anonymous/thelastpickle/...'
+        # should be stored as 'thelastpickle/...', because the pods pull
+        # <nexus-ip>:5000/thelastpickle/cassandra-reaper:<tag>
+        if [[ "$REL_PATH" == anonymous/thelastpickle/* ]]; then
             REL_PATH=${REL_PATH#anonymous/}
         fi
 
@@ -1269,6 +1276,95 @@ hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m28s
 hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m28s
 hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m29s
 ```
+
+### Troubleshooting – Reaper and CQLSH PODs Issues After Cluster Setup
+
+> ---
+> After a fresh Mission Control / HCD install on OpenShift, the Reaper and CQLSH pods might fail with one or more of these symptoms:
+> - Error: container has runAsNonRoot and image has non-numeric user (reaper)
+>   - **Root cause:**
+>       - The Reaper and CQLSH containers run as the users mentioned in the image.
+>       - The pod’s securityContext has runAsNonRoot: true.
+>       - When the image user is a name (not a numeric UID), kubelet cannot prove it’s non-root, so it refuses to start the container.
+> - Java error: ACCESS CONTROL: User configuration missing username
+>   - **Root cause:**
+>       - Auth is enabled (REAPER_AUTH_ENABLED=true and CQLSH_AUTH_ENABLED or default).
+>       - But no valid user credentials are configured (empty or missing env vars).
+>       - Containers refuses to start if access control is on but no user is defined.
+>
+> ---
+
+#### One-shot post-install tweak
+
+After a successful HCD install, you can run the following single patch to both:
+
+1. Find reaper pod and its StatefulSet.
+   
+    ```shell
+    REAPER_POD=$(oc get pods -n "$PROJ_NAME" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep reaper-0)
+    echo "$REAPER_POD"
+    ```
+
+    ```shell
+    STS_NAME=$(oc get pod "$REAPER_POD" -n "$PROJ_NAME" -o jsonpath='{.metadata.ownerReferences[0].name}')
+    echo "$STS_NAME"
+    ```
+2. Disable runAsNonRoot and turn off auth.
+   
+    ```shell
+    oc patch statefulset hcd-test-1-dc-1-reaper -n "$PROJ_NAME" --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/securityContext/runAsNonRoot","value":false},{"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"REAPER_AUTH_ENABLED","value":"false"}}]'
+    ```
+
+3. Find cqlsh pod, its ReplicaSet, then Deployment.
+
+    ```shell
+    CQLSH_POD=$(oc get pods -n "$PROJ_NAME" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep cqlsh-)
+    echo "cqlsh pod: $CQLSH_POD"
+    ```
+
+    ```shell
+    CQLSH_RS=$(oc get pod "$CQLSH_POD" -n "$PROJ_NAME" -o jsonpath='{.metadata.ownerReferences[0].name}')
+    echo "cqlsh ReplicaSet: $CQLSH_RS"
+    ```
+
+    ```shell
+    CQLSH_DEPLOY=$(oc get rs "$CQLSH_RS" -n "$PROJ_NAME" -o jsonpath='{.metadata.ownerReferences[0].name}')
+    echo "cqlsh Deployment: $CQLSH_DEPLOY"
+    ```
+4. Patch cqlsh pod and disable runAsNonRoot
+
+    ```shell
+    oc patch deployment "$CQLSH_DEPLOY" -n "$PROJ_NAME" --type=json -p='[
+    {"op":"add","path":"/spec/template/spec/containers/0/securityContext/runAsNonRoot","value":false}
+    ]'
+    ```
+
+5. Restart both pods so changes take effect.
+
+
+    ```shell
+    oc delete pod "$REAPER_POD" -n "$PROJ_NAME" --ignore-not-found=true
+    ```
+
+    ```shell
+    oc delete pod "$CQLSH_POD" -n "$PROJ_NAME" --ignore-not-found=true
+    ```
+
+    💡 **Expected Output:**
+    ```shell
+    [root@itz-usft6l-helper-1 ~]# oc get pods -n "$PROJ_NAME" -w 
+    NAME                                               READY   STATUS    RESTARTS   AGE
+    hcd-test-1-dc-1-reaper-0                           1/1     Running   0          16m
+    hcd-test-1-hcd-test-1-dc-1-cqlsh-bb7575487-hvscg   1/1     Running   0          71s
+    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0            2/2     Running   0          57m
+    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-1            2/2     Running   0          57m
+    hcd-test-1-hcd-test-1-dc-1-rack-1-sts-2            2/2     Running   0          57m
+    ```
+
+    > ---
+    > This gives you a clean, repeatable way to fix the two most common Reaper pod issues on OpenShift after an airgapped HCD/Mission Control install.
+    >
+    > ---
 
 🔧 **Helpful Commands**
 
