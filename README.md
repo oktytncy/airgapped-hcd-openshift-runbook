@@ -1266,6 +1266,7 @@ Using project "mission-control".
 
 
 💡 **Expected Output:**
+
 ```shell
 [root@itz-usft6l-helper-1 ~]# oc get pods -n $PROJ_NAME -w
 NAME                                      READY   STATUS    RESTARTS   AGE
@@ -1278,6 +1279,16 @@ hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m29s
 ```
 
 ### Troubleshooting – Reaper and CQLSH PODs Issues After Cluster Setup
+
+```shell
+[root@itz-usft6l-helper-1 ~]# oc get pods -n "$PROJ_NAME" -w 
+NAME                                                READY   STATUS                       RESTARTS   AGE
+hcd-test-2-dc-1-reaper-0                            0/1     CreateContainerConfigError   0          57m
+hcd-test-2-hcd-test-2-dc-1-cqlsh-5dd8647664-qb58w   0/1     CreateContainerConfigError   0          57m
+hcd-test-2-hcd-test-2-dc-1-rack-1-sts-0             2/2     Running                      0          64m
+hcd-test-2-hcd-test-2-dc-1-rack-1-sts-1             2/2     Running                      0          64m
+hcd-test-2-hcd-test-2-dc-1-rack-1-sts-2             2/2     Running                      0          64m
+```
 
 > ---
 > After a fresh Mission Control / HCD install on OpenShift, the Reaper and CQLSH pods might fail with one or more of these symptoms:
@@ -1298,7 +1309,7 @@ hcd-test-1-hcd-test-1-dc-1-rack-1-sts-0   2/2     Running   0          5m29s
 
 After a successful HCD install, you can run the following single patch to both:
 
-1. Find reaper pod and its StatefulSet.
+1. Find the Reaper pod and its StatefulSet.
    
     ```shell
     REAPER_POD=$(oc get pods -n "$PROJ_NAME" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep reaper-0)
@@ -1312,10 +1323,10 @@ After a successful HCD install, you can run the following single patch to both:
 2. Disable runAsNonRoot and turn off auth.
    
     ```shell
-    oc patch statefulset hcd-test-1-dc-1-reaper -n "$PROJ_NAME" --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/securityContext/runAsNonRoot","value":false},{"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"REAPER_AUTH_ENABLED","value":"false"}}]'
+    oc patch statefulset "$STS_NAME" -n "$PROJ_NAME" --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/securityContext/runAsNonRoot","value":false},{"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"REAPER_AUTH_ENABLED","value":"false"}}]'
     ```
 
-3. Find cqlsh pod, its ReplicaSet, then Deployment.
+3. Find the CQLSH pod, its ReplicaSet, then Deployment.
 
     ```shell
     CQLSH_POD=$(oc get pods -n "$PROJ_NAME" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep cqlsh-)
@@ -1331,7 +1342,7 @@ After a successful HCD install, you can run the following single patch to both:
     CQLSH_DEPLOY=$(oc get rs "$CQLSH_RS" -n "$PROJ_NAME" -o jsonpath='{.metadata.ownerReferences[0].name}')
     echo "cqlsh Deployment: $CQLSH_DEPLOY"
     ```
-4. Patch cqlsh pod and disable runAsNonRoot
+4. Patch the CQLSH pod and disable runAsNonRoot
 
     ```shell
     oc patch deployment "$CQLSH_DEPLOY" -n "$PROJ_NAME" --type=json -p='[
